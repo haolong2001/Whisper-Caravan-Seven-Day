@@ -1,61 +1,55 @@
 # AGENTS.md
 
-## Purpose
+## Project
 
-This repository contains **Whisper Caravan**, a narrative prototype about memory decay, public evidence, and delayed social consequences across a seven-day travel loop.
+Whisper Caravan: Seven-Day Memory is a frontend-first narrative game prototype.
 
-The current codebase is a **frontend-only playable prototype** built with Next.js. It is feature-wise closer to `v0.2` than `v0.1`, and `package.json` now reports `0.2.0`.
+## Normal Codex Workflow
 
-## Stack
+For normal coding tasks, read:
 
-- Next.js 15 App Router
-- React 19
-- TypeScript
-- Tailwind CSS
+- `docs/CODEX_HANDOFF.md`
+- the current version file listed in `docs/CODEX_HANDOFF.md`
 
-## Source Of Truth
+Only read `docs/GAME_SYSTEMS.md` when changing:
 
-- Product direction: `docs/PRODUCT_BRIEF.md`
-- Game systems: `docs/GAME_DESIGN.md`
-- Technical structure: `docs/ARCHITECTURE.md`
-- Delivery sequence: `docs/ROADMAP.md`
-- Agent handoff notes: `docs/CODEX_HANDOFF.md`
+- domain types
+- memory lifecycle
+- event/choice effects
+- NPC reaction logic
+- faction/resource logic
+- retrieval or RAG-related logic
 
-Treat `docs/ARCHITECTURE.md` as the current architecture reference. The older root-level `ARCHITECTURE.md` is a legacy snapshot and may lag behind the code.
+Do not scan all docs unless the user asks for planning, architecture, release, or refactor work.
 
-## Important Paths
+## Architecture Rules
 
-- `app/page.tsx`: top-level screen orchestration
-- `lib/mockData.ts`: authored world events and choices
-- `lib/gameLogic.ts`: pure state transitions and retrieval logic
-- `lib/types.ts`: domain types
-- `components/`: UI panels and cards
-- `docs/versions/`: version scope definitions
-- `docs/decisions/`: ADR-style product and architecture decisions
+- `app/page.tsx` owns top-level state orchestration.
+- `lib/mockData.ts` owns static game content.
+- `lib/gameLogic.ts` owns pure game rules.
+- `lib/types.ts` owns shared TypeScript domain types.
+- Components should be presentational whenever possible.
+- Do not put branching story logic inside JSX.
 
-## Working Rules
+## Codex Development Rules
 
-- Keep game rules and state transitions in `lib/`, not inside components.
-- Prefer pure functions for choice application, forgetting, retrieval, and scoring.
-- Keep `app/page.tsx` as the composition root; do not spread state ownership across many components unless the architecture is intentionally revised.
-- When adding features that change scope, update:
-  - `CHANGELOG.md`
-  - `docs/ROADMAP.md`
-  - the relevant file in `docs/versions/`
-- When making architectural changes, add a new ADR in `docs/decisions/`.
-- If you align release/version labeling, update both `package.json` and user-facing copy in the UI.
+- Implement one version at a time.
+- Keep changes small and reviewable.
+- Preserve existing file boundaries.
+- Do not rewrite unrelated files.
+- Prefer deterministic logic before generative logic.
+- `npm run build` must pass after each version or meaningful coding task.
+- After each version, update `docs/CODEX_HANDOFF.md`.
+- Update version docs only when version scope, status, or acceptance criteria changed.
 
-## Local Commands
+## Forbidden Unless Explicitly Requested
 
-```bash
-npm install
-npm run dev
-npm run build
-```
-
-## Known Gaps
-
-- No automated tests yet
-- No backend or persistent storage
-- No real retrieval pipeline or vector store
-- Version labeling is not fully synchronized across code and docs
+- Backend
+- API routes
+- LLM calls
+- Vector database
+- Auth
+- Save/load
+- Combat
+- Inventory
+- Map screen

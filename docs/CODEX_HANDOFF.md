@@ -1,60 +1,59 @@
 # Codex Handoff
 
-## Project Status
+## Current Version and version file
 
-Whisper Caravan is currently a playable frontend prototype centered on a seven-day memory loop. The code already contains authored events for Days 1-7 and a Day 8 consequence pass based on surviving public evidence.
+v0.3.0
 
-## What Is Stable
+`docs/versions/v0.3.md`
 
-- Core domain model in `lib/types.ts`
-- Authored event content in `lib/mockData.ts`
-- Pure game transitions in `lib/gameLogic.ts`
-- Single-page UI composition in `app/page.tsx`
-- Main presentation panels in `components/`
+## Current State
 
-## What Needs Attention
+v0.1 frontend-only prototype is complete.
 
-### 1. Version Label Drift
+v0.2 is complete in code and build-verified.
 
-- `package.json` now says `0.2.0`
-- UI hero copy says `v0.2`
-- repo scope is aligned with `v0.2`
+v0.2 implements
 
-The remaining work is mostly release hygiene, not version-name mismatch.
+7 daily events → choices create memories → Memory Inspector updates → Day 7 collapse preview → Day 8 forgetting → NPC reacts based on remaining active evidence.
 
-### 2. Documentation Drift
+Current v0.3 Goal
 
-There is an older root `ARCHITECTURE.md` that reflects an earlier single-incident structure. Use `docs/ARCHITECTURE.md` as the current reference unless the root file is intentionally updated or removed later.
+Improve consequence clarity, evidence categories, NPC access rules, and Day 8 judgment presentation without adding backend, LLM, vector database, save/load, combat, inventory, or map screen.
 
-### 3. No Test Coverage
+## System Reference
 
-The highest-value missing tests are:
+Read `docs/GAME_SYSTEMS.md` only when changing:
 
-- `applyChoice`
-- `advanceDay`
-- `applySevenDayForgetting`
-- `getMemoryCollapsePreview`
-- `getDeerGuardReaction`
-- `getBearCourtPreview`
+- domain model
+- memory lifecycle
+- NPC memory access
+- faction/resource effects
+- retrieval logic
+- RAG transition code
 
-## Recommended Next Tasks
+## Architecture Reminder
 
-1. Add unit tests for `lib/gameLogic.ts`.
-2. Split `lib/mockData.ts` into smaller content modules if more events or NPCs are added.
-3. Decide whether the next milestone is:
-   - more authored content, or
-   - backend retrieval integration
-4. Clean up the legacy architecture doc situation.
+- State orchestration: `app/page.tsx`
+- Data: `lib/mockData.ts`
+- Rules: `lib/gameLogic.ts`
+- Types: `lib/types.ts`
+- UI: `components/`
 
-## Editing Guidance
+## Last Completed
 
-- Keep authored content data-driven.
-- Prefer extending `lib/types.ts` and `lib/gameLogic.ts` before adding UI-only conditionals.
-- Preserve the current inspectable prototype quality: players should always be able to understand why a reaction happened.
-- Update `CHANGELOG.md` and relevant docs when scope changes.
+v0.2 seven-day memory loop.
 
-## Suggested Release Discipline
+Verification on June 26, 2026:
 
-- Treat `docs/versions/` as scope contracts
-- Treat `docs/decisions/` as decision history
-- Use `RELEASE_CHECKLIST.md` before tagging any milestone
+- `npm run build` passes
+- Day 1 → Day 8 loop is closed in current state orchestration and pure game rules
+- Day 7 collapse preview and Day 8 Deer Guard aftermath are wired into the main flow
+
+## Next Task
+
+Start v0.3 with a small vertical slice from `docs/versions/v0.3.md`.
+
+## Needs Testing
+
+- Recommended manual browser smoke test for one full Day 1 → Day 8 playthrough
+- Recommended spot checks for alternate weekly routes and Bear Court preview output

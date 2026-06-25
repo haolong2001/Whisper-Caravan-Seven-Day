@@ -2,92 +2,63 @@
 
 ## Current Position
 
-The repository currently matches the intended `v0.2` shape, and the package metadata is now aligned to `0.2.0`.
+The repository currently matches the intended `v0.2` shape.
 
-## Version Sequence
+## Rule
 
-### v0.1
+This roadmap tracks **version direction only**.
 
-Goal:
-Prove the premise with a single incident and visible memory decay.
+Detailed scope, tasks, required behavior, and non-goals for each version belong in:
 
-Delivered ideas:
+- `docs/versions/v0.x.md`
+- `docs/versions/v1.0.md`
 
-- Deer Village theft setup
-- memory inspector
-- basic Day 8 consequence framing
+## Version Roadmap
 
-Reference:
+### v0.1 - Frontend Vertical Slice
+
+Focus:
+Prove the memory-loop premise in a minimal playable prototype.
+
+Details:
 `docs/versions/v0.1.md`
 
-### v0.2
+### v0.2 - Seven-Day Playable Loop
 
-Goal:
-Expand the premise into a full seven-day authored loop with differentiated evidence creation.
+Focus:
+Expand the concept into a complete seven-day run with visible memory collapse and aftermath.
 
-Target outcomes:
-
-- 7 days of events
-- 4 choices per day
-- Day 7 collapse preview
-- Day 8 aftermath reaction
-- evidence-role and reliability-based resolution
-
-Reference:
+Details:
 `docs/versions/v0.2.md`
 
-### v0.3
+### v0.3 - NPC Access Rules and Faction Reactivity
 
-Goal:
-Increase systemic depth through more NPC perspectives and stronger downstream consequences.
+Focus:
+Different NPCs should react differently based on access rules, evidence filtering, and faction context.
 
-Candidate work:
+Details:
+`docs/versions/v0.3.md`
 
-- multiple NPC reaction profiles
-- location-specific reactions
-- stronger faction consumption
-- more explicit legal and market consequences
+### v0.4 - Real RAG Backend
 
-### v0.4
+Focus:
+Replace client-only deterministic retrieval with a real backend retrieval and reaction pipeline.
 
-Goal:
-Replace authored retrieval simulation with a backend-backed retrieval architecture.
+Details:
+`docs/versions/v0.4.md`
 
-Candidate work:
+### v0.5 - Fourteen-Day Beta
 
-- FastAPI service
-- vector or hybrid retrieval store
-- metadata filtering by visibility, day, reliability, and source type
-- structured NPC response schema
+Focus:
+Turn the prototype into a fuller playable beta with broader content and a final legal resolution.
 
-### v0.5
+Details:
+`docs/versions/v0.5.md`
 
-Goal:
-Shape the prototype into a small but complete vertical slice.
+### v1.0 - Portfolio Version
 
-Candidate work:
+Focus:
+Package the project as a polished, explainable portfolio piece.
 
-- 14 days or a denser branching week
-- courtroom sequence
-- multiple endings
-- save/load or route summary
-
-### v1.0
-
-Goal:
-Release a polished portfolio-quality version.
-
-Candidate work:
-
-- stable deployment
-- final documentation
-- demo video
-- architecture visuals
-- evaluation write-up
-
-## Recommended Immediate Next Steps
-
-1. Keep version labels aligned across `package.json`, UI text, and docs.
-2. Add tests for `applyChoice`, `applySevenDayForgetting`, and Day 8 retrieval outcomes.
-3. Split `lib/mockData.ts` before further content expansion.
-4. Decide whether `v0.3` prioritizes more content or a real backend.
+Details:
+`docs/versions/v1.0.md`
