@@ -1,10 +1,10 @@
-import { ChoiceOption } from "@/lib/types";
+import { Choice } from "@/lib/types";
 
 type ChoiceCardProps = {
-  option: ChoiceOption;
+  option: Choice;
   selected: boolean;
   disabled?: boolean;
-  onSelect: (id: ChoiceOption["id"]) => void;
+  onSelect: (id: Choice["id"]) => void;
 };
 
 export function ChoiceCard({
@@ -28,11 +28,11 @@ export function ChoiceCard({
         <span className="font-display text-xl text-parchment">{option.id}</span>
         {selected ? (
           <span className="rounded-full border border-amber-200/30 px-2 py-1 text-[10px] uppercase tracking-[0.3em] text-amber-100">
-            Locked In
+            Chosen
           </span>
         ) : null}
       </div>
-      <h3 className="text-base font-semibold text-white">{option.title}</h3>
+      <h3 className="text-base font-semibold text-white">{option.label}</h3>
       <p className="mt-1 text-sm leading-6 text-stone-300">{option.description}</p>
     </button>
   );

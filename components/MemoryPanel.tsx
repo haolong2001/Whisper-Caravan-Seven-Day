@@ -2,33 +2,42 @@ import { MemoryItem } from "@/lib/types";
 
 type MemoryPanelProps = {
   memories: MemoryItem[];
+  activeCount: number;
+  expiredCount: number;
 };
 
 const typeStyles: Record<MemoryItem["type"], string> = {
   short_term: "border-sky-300/25 bg-sky-400/10 text-sky-100",
   record: "border-rose-300/25 bg-rose-400/10 text-rose-100",
   song: "border-emerald-300/25 bg-emerald-400/10 text-emerald-100",
+  rumor: "border-orange-300/25 bg-orange-400/10 text-orange-100",
 };
 
-export function MemoryPanel({ memories }: MemoryPanelProps) {
+export function MemoryPanel({ memories, activeCount, expiredCount }: MemoryPanelProps) {
   return (
     <section className="panel panel-glow rounded-3xl p-6 shadow-panel">
       <div className="mb-6">
         <p className="text-xs uppercase tracking-[0.35em] text-amber-100/70">
           Memory Inspector
         </p>
-        <h2 className="font-display mt-3 text-3xl text-parchment">Memory Stack</h2>
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <h2 className="font-display text-3xl text-parchment">Memory Stack</h2>
+          <div className="text-right text-xs uppercase tracking-[0.25em] text-stone-400">
+            <div>{activeCount} active</div>
+            <div className="mt-1">{expiredCount} expired</div>
+          </div>
+        </div>
         <p className="mt-2 text-sm leading-6 text-stone-300">
-          Private short-term traces decay after seven days. Public records and
-          songs persist and remain queryable.
+          Short-term memories expire seven days after creation. Public records, songs,
+          and rumors remain available to retrieval on Day 8.
         </p>
       </div>
 
       <div className="space-y-4">
         {memories.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-white/15 p-5 text-sm text-stone-400">
-            No memories captured yet. Select an action to write into the caravan
-            memory system.
+            No memories captured yet. Each day choice can write new traces into the
+            caravan's world-state.
           </div>
         ) : (
           memories.map((memory) => (
@@ -50,7 +59,10 @@ export function MemoryPanel({ memories }: MemoryPanelProps) {
                   {memory.visibility}
                 </span>
                 <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-                  {memory.active ? "active" : "inactive"}
+                  {memory.active ? "active" : "expired"}
+                </span>
+                <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                  {memory.evidenceRole}
                 </span>
               </div>
 
@@ -80,11 +92,9 @@ export function MemoryPanel({ memories }: MemoryPanelProps) {
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-                    Retention
+                    Reliability
                   </dt>
-                  <dd className="mt-1">
-                    {memory.persistent ? "Persistent index" : "Seven-day buffer"}
-                  </dd>
+                  <dd className="mt-1">{Math.round(memory.reliability * 100)}%</dd>
                 </div>
               </dl>
             </article>

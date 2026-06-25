@@ -4,80 +4,95 @@ import { useState } from "react";
 import { DayTracker } from "@/components/DayTracker";
 import { EvidencePanel } from "@/components/EvidencePanel";
 import { GameScene } from "@/components/GameScene";
+import { MemoryCollapsePanel } from "@/components/MemoryCollapsePanel";
 import { MemoryPanel } from "@/components/MemoryPanel";
+import { StatusPanel } from "@/components/StatusPanel";
+import { ChoiceId } from "@/lib/types";
 import {
-  ChoiceId,
-  GameEffects,
-  MemoryItem,
-  RetrievedEvidence,
-} from "@/lib/types";
-import {
-  choiceOptions,
-  deerVillageEvent,
-  deerVillageLocation,
+  day8Aftermath,
+  initialGameState,
   initialNpcResponse,
-  initialSceneStatus,
 } from "@/lib/mockData";
 import {
-  applySevenDayForgetting,
-  getChoiceResult,
-  getDeerGuardReaction,
+  applyChoice,
+  applyDay8Transition,
+  advanceDay,
+  getActiveMemories,
   getActivePublicEvidence,
+  getDeerGuardReaction,
+  getEventForDay,
+  getExpiredMemories,
+  getMemoryCollapsePreview,
 } from "@/lib/gameLogic";
 
 export default function Home() {
-  const [day, setDay] = useState(1);
-  const [location] = useState(deerVillageLocation);
-  const [selectedChoice, setSelectedChoice] = useState<ChoiceId | null>(null);
-  const [memories, setMemories] = useState<MemoryItem[]>([]);
-  const [sceneStatus, setSceneStatus] = useState(initialSceneStatus);
-  const [hasForgotten, setHasForgotten] = useState(false);
-  const [npcResponse, setNpcResponse] = useState(initialNpcResponse);
-  const [retrievedEvidence, setRetrievedEvidence] = useState<RetrievedEvidence[]>([]);
-  const [gameEffects, setGameEffects] = useState<GameEffects | null>(null);
+  const [gameState, setGameState] = useState(initialGameState);
 
-  const handleChoiceSelect = (choice: ChoiceId) => {
-    const result = getChoiceResult(choice);
+  const currentEvent = getEventForDay(gameState.currentDay);
+  const currentChoiceRecord = gameState.dayChoices[gameState.currentDay];
+  const hasChosenToday = Boolean(currentChoiceRecord);
+  const isDay7Collapse =
+    gameState.currentDay === 7 && hasChosenToday && !gameState.hasAppliedDay8;
+  const isDay8Aftermath = gameState.currentDay === 8 && gameState.hasAppliedDay8;
+  const activeMemories = getActiveMemories(gameState.memories);
+  const expiredMemories = getExpiredMemories(gameState.memories);
+  const activePublicEvidence = getActivePublicEvidence(gameState.memories);
+  const memoryCollapsePreview = isDay7Collapse
+    ? getMemoryCollapsePreview(gameState.memories, 8)
+    : null;
+  const deerGuardReaction = isDay8Aftermath
+    ? getDeerGuardReaction(gameState.memories)
+    : null;
 
-    setSelectedChoice(choice);
-    setHasForgotten(false);
-    setDay(1);
-    setRetrievedEvidence([]);
-    setGameEffects(null);
-    setNpcResponse(initialNpcResponse);
-    setMemories(result.memories);
-    setSceneStatus(result.sceneStatus);
-  };
+  const headline = isDay8Aftermath ? "Deer Guard Aftermath Query" : "Evidence Preview";
+  const npcResponse = deerGuardReaction
+    ? deerGuardReaction.dialogue
+    : isDay7Collapse
+      ? "The caravan counts what will vanish at dawn and what the public world will keep."
+      : hasChosenToday
+        ? "No guard query has fired yet. The right panel is showing the active public evidence trail you have created so far."
+        : initialNpcResponse;
+  const retrievedEvidence = deerGuardReaction
+    ? deerGuardReaction.evidence
+    : activePublicEvidence;
+  const gameEffects = deerGuardReaction ? deerGuardReaction.effects : null;
+  const location = currentEvent?.location ?? day8Aftermath.location;
+  const title = currentEvent?.title ?? day8Aftermath.title;
+  const description = currentEvent?.description ?? day8Aftermath.description;
+  const statusText = isDay8Aftermath
+    ? "Seven-day forgetting applied"
+    : isDay7Collapse
+      ? "Collapse preview active"
+      : hasChosenToday
+        ? "Choice locked for the day"
+        : "Fresh decision window";
+  const actionLabel = isDay8Aftermath
+    ? undefined
+    : gameState.currentDay === 7
+      ? "Advance to Day 8"
+      : `Advance to Day ${gameState.currentDay + 1}`;
+  const actionDisabled = !hasChosenToday;
 
-  const handleJumpToDay8 = () => {
-    const advancedDay = 8;
-    const updatedMemories = applySevenDayForgetting(memories, advancedDay);
-    const activePublicEvidence = getActivePublicEvidence(updatedMemories);
-
-    setDay(advancedDay);
-    setHasForgotten(true);
-    setMemories(updatedMemories);
-
-    if (selectedChoice === "B") {
-      const reaction = getDeerGuardReaction(updatedMemories);
-
-      setNpcResponse(reaction.dialogue);
-      setRetrievedEvidence(reaction.evidence);
-      setGameEffects(reaction.effects);
-      setSceneStatus(
-        "Day 8 arrives. The witness memory expires, but active public evidence still shapes how the Deer Guard reacts."
-      );
+  const handleChoiceSelect = (choiceId: ChoiceId) => {
+    if (!currentEvent || hasChosenToday) {
       return;
     }
 
-    setNpcResponse("No active public evidence ties your caravan to the medicine conflict.");
-    setRetrievedEvidence(activePublicEvidence);
-    setGameEffects({
-      trustDelta: 0,
-      priceModifier: 1,
-      questAvailable: true,
-      legalRiskDelta: 0,
-    });
+    const choice = currentEvent.choices.find((item) => item.id === choiceId);
+
+    if (!choice) {
+      return;
+    }
+
+    setGameState((previousState) => applyChoice(previousState, choice));
+  };
+
+  const handleAdvance = () => {
+    setGameState((previousState) =>
+      previousState.currentDay === 7
+        ? applyDay8Transition(previousState)
+        : advanceDay(previousState)
+    );
   };
 
   return (
@@ -90,36 +105,51 @@ export default function Home() {
           Whisper Caravan: Seven-Day Memory
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 sm:text-base">
-          A narrative sandbox for testing temporal forgetting: private witness memory
-          decays after seven days, while public records and song stay retrievable and
-          continue to shape NPC behavior.
+          v0.2 expands the single incident demo into a seven-day loop: daily events
+          create memories, Day 7 previews the collapse boundary, and Day 8 reveals
+          what public evidence still has the power to move an NPC.
         </p>
       </div>
 
       <DayTracker
-        day={day}
+        day={gameState.currentDay}
         location={location}
-        hasForgotten={hasForgotten}
-        onJumpToDay8={handleJumpToDay8}
+        statusText={statusText}
+        actionLabel={actionLabel}
+        actionDisabled={actionDisabled}
+        onAction={handleAdvance}
       />
+
+      <StatusPanel factions={gameState.factions} resources={gameState.resources} />
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <GameScene
-          day={day}
+          day={gameState.currentDay}
           location={location}
-          eventText={deerVillageEvent}
-          selectedChoice={selectedChoice}
-          sceneStatus={sceneStatus}
-          options={choiceOptions}
+          title={title}
+          eventText={description}
+          selectedChoice={currentChoiceRecord?.choiceId ?? null}
+          sceneStatus={gameState.sceneStatus}
+          options={currentEvent?.choices ?? []}
+          choicesLocked={hasChosenToday || isDay8Aftermath}
           onSelectChoice={handleChoiceSelect}
         />
-        <MemoryPanel memories={memories} />
-        <EvidencePanel
-          hasForgotten={hasForgotten}
-          npcResponse={npcResponse}
-          retrievedEvidence={retrievedEvidence}
-          gameEffects={gameEffects}
+        <MemoryPanel
+          memories={gameState.memories}
+          activeCount={activeMemories.length}
+          expiredCount={expiredMemories.length}
         />
+        {memoryCollapsePreview ? (
+          <MemoryCollapsePanel preview={memoryCollapsePreview} />
+        ) : (
+          <EvidencePanel
+            headline={headline}
+            npcResponse={npcResponse}
+            retrievedEvidence={retrievedEvidence}
+            gameEffects={gameEffects}
+            bearCourtPreview={deerGuardReaction?.bearCourtPreview ?? null}
+          />
+        )}
       </div>
     </main>
   );

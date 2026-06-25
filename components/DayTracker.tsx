@@ -1,17 +1,19 @@
 type DayTrackerProps = {
   day: number;
   location: string;
-  hasForgotten: boolean;
-  isBusy?: boolean;
-  onJumpToDay8: () => void;
+  statusText: string;
+  actionLabel?: string;
+  actionDisabled?: boolean;
+  onAction?: () => void;
 };
 
 export function DayTracker({
   day,
   location,
-  hasForgotten,
-  isBusy = false,
-  onJumpToDay8,
+  statusText,
+  actionLabel,
+  actionDisabled = false,
+  onAction,
 }: DayTrackerProps) {
   return (
     <div className="panel panel-glow rounded-3xl p-5 shadow-panel">
@@ -31,24 +33,22 @@ export function DayTracker({
         </div>
         <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
           <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-stone-300">
-            {isBusy
-              ? "Querying deer guard memory"
-              : hasForgotten
-                ? "Seven-day forgetting applied"
-                : "Fresh memory window"}
+            {statusText}
           </div>
-          <button
-            type="button"
-            onClick={onJumpToDay8}
-            disabled={hasForgotten || isBusy}
-            className={`rounded-full px-5 py-3 text-sm font-semibold transition ${
-              hasForgotten || isBusy
-                ? "cursor-not-allowed bg-stone-700/70 text-stone-300"
-                : "bg-amber-500 text-stone-950 hover:bg-amber-400"
-            }`}
-          >
-            {isBusy ? "Querying..." : "Jump to Day 8"}
-          </button>
+          {actionLabel ? (
+            <button
+              type="button"
+              onClick={onAction}
+              disabled={actionDisabled}
+              className={`rounded-full px-5 py-3 text-sm font-semibold transition ${
+                actionDisabled
+                  ? "cursor-not-allowed bg-stone-700/70 text-stone-300"
+                  : "bg-amber-500 text-stone-950 hover:bg-amber-400"
+              }`}
+            >
+              {actionLabel}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
