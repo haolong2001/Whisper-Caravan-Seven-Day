@@ -76,12 +76,20 @@ class GameEffects(BaseModel):
     legalRiskDelta: int
 
 
+class RetrievalDebug(BaseModel):
+    retrievalSource: Literal["vector", "sqlite"]
+    candidateCount: Optional[int] = None
+    resolvedCandidateCount: Optional[int] = None
+    filteredEvidenceCount: Optional[int] = None
+
+
 class NpcReaction(BaseModel):
     profile: NPCProfile
     dialogue: str
     effects: GameEffects
     acceptedEvidence: List[EvaluatedEvidence]
     rejectedEvidence: List[EvaluatedEvidence]
+    debug: Optional[RetrievalDebug] = None
 
 
 class IngestRequest(BaseModel):
@@ -107,6 +115,7 @@ class QueryRequest(BaseModel):
 
 class QueryResponse(BaseModel):
     evidence: List[RetrievedEvidence]
+    debug: Optional[RetrievalDebug] = None
 
 
 class ReactionRequest(BaseModel):

@@ -1,4 +1,9 @@
-import { EvaluatedEvidence, NpcReaction, RetrievedEvidence } from "@/lib/types";
+import {
+  EvaluatedEvidence,
+  NpcReaction,
+  RetrievedEvidence,
+  RetrievalDebug,
+} from "@/lib/types";
 
 type EvidencePanelProps = {
   headline: string;
@@ -7,14 +12,18 @@ type EvidencePanelProps = {
   npcReactions?: NpcReaction[] | null;
   evidenceSource: "backend" | "local";
   reactionSource?: "backend" | "local" | null;
+  evidenceDebug?: RetrievalDebug | null;
+  reactionDebug?: RetrievalDebug | null;
 };
 
 function SourceBadge({
   label,
   source,
+  debug = null,
 }: {
   label: string;
   source: "backend" | "local";
+  debug?: RetrievalDebug | null;
 }) {
   const toneClasses =
     source === "backend"
@@ -27,6 +36,14 @@ function SourceBadge({
       <p className="mt-1 text-xs font-semibold uppercase tracking-[0.24em]">
         {source === "backend" ? "Backend" : "Local Fallback"}
       </p>
+      {debug ? (
+        <div className="mt-2 space-y-1 text-[10px] uppercase tracking-[0.2em] text-white/75">
+          <div>retrieval {debug.retrievalSource}</div>
+          <div>candidates {debug.candidateCount ?? "n/a"}</div>
+          <div>resolved {debug.resolvedCandidateCount ?? "n/a"}</div>
+          <div>filtered {debug.filteredEvidenceCount ?? "n/a"}</div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -296,6 +313,8 @@ export function EvidencePanel({
   npcReactions = null,
   evidenceSource,
   reactionSource = null,
+  evidenceDebug = null,
+  reactionDebug = null,
 }: EvidencePanelProps) {
   return (
     <section className="panel panel-glow rounded-3xl p-6 shadow-panel">
@@ -313,9 +332,17 @@ export function EvidencePanel({
             <p className="mt-3 text-base leading-7 text-stone-200">{overviewText}</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <SourceBadge label="Evidence Source" source={evidenceSource} />
+            <SourceBadge
+              label="Evidence Source"
+              source={evidenceSource}
+              debug={evidenceSource === "backend" ? evidenceDebug : null}
+            />
             {reactionSource ? (
-              <SourceBadge label="Reaction Source" source={reactionSource} />
+              <SourceBadge
+                label="Reaction Source"
+                source={reactionSource}
+                debug={reactionSource === "backend" ? reactionDebug : null}
+              />
             ) : null}
           </div>
         </div>

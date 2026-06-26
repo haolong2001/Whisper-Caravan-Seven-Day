@@ -91,6 +91,13 @@ export type GameEffects = {
   legalRiskDelta: number;
 };
 
+export type RetrievalDebug = {
+  retrievalSource: "vector" | "sqlite";
+  candidateCount?: number;
+  resolvedCandidateCount?: number;
+  filteredEvidenceCount?: number;
+};
+
 export type EvidenceMetadata = {
   day: number;
   source: string;
@@ -135,6 +142,7 @@ export type NpcReaction = {
   effects: GameEffects;
   acceptedEvidence: EvaluatedEvidence[];
   rejectedEvidence: EvaluatedEvidence[];
+  debug?: RetrievalDebug;
 };
 
 export type BackendMemoryRecord = {
@@ -168,6 +176,7 @@ export type MemoryQueryRequest = {
 
 export type MemoryQueryResult = {
   evidence: RetrievedEvidence[];
+  debug?: RetrievalDebug;
 };
 
 export type DailyChoiceRecord = {

@@ -28,6 +28,10 @@ v0.4.0 slice 2 is now in place:
 
 The backend now persists ingested memory metadata in a local SQLite database while preserving the same API contract, deterministic retrieval rules, and frontend adapter behavior from slice 1.
 
+v0.4.0 slice 3 is now in place:
+
+The backend now adds a Chroma-backed candidate retrieval layer with local deterministic embeddings. Chroma only suggests candidate memory ids; SQLite remains authoritative, and all active/visibility/type/reliability/NPC access filtering still happens deterministically after SQLite resolution.
+
 Current v0.4 Goal
 
 Stand up the real retrieval backend in small deterministic slices: stable API contract first, metadata filtering first, no LLM generation yet, no Chroma yet, and no major frontend rewrite.
@@ -53,28 +57,33 @@ Read `docs/GAME_SYSTEMS.md` only when changing:
 
 ## Last Completed
 
-v0.4.0 slice 2: SQLite-backed backend persistence with stable API shapes.
+v0.4.0 slice 3: Chroma candidate retrieval layered under SQLite authority.
 
 Verification on June 27, 2026:
 
 - `npm run build` passes
 - Python backend modules compile with `PYTHONPYCACHEPREFIX=/private/tmp/whisper-caravan-pycache .venv/bin/python -m compileall backend/app backend/tests`
-- Backend tests pass with `.venv/bin/python -m unittest backend.tests.test_rules backend.tests.test_store` after installing `backend/requirements.txt`
+- Backend tests pass with `.venv/bin/python -m unittest backend.tests.test_rules backend.tests.test_store backend.tests.test_retrieval` after installing `backend/requirements.txt`
 - FastAPI backend skeleton exists under `backend/app/`
 - `/health`, `/memories/ingest`, `/memories/query`, and `/npc/reaction` are implemented
 - Backend storage now uses local SQLite persistence at `backend/data/whisper_caravan.db` by default
+- Backend vector candidates now use Chroma at `backend/data/chroma` when available
+- Backend embeddings are local and deterministic in `backend/app/embeddings.py`
+- Backend query and reaction responses now include optional debug metadata for `retrievalSource`, candidate counts, and filtered counts
 - Frontend retrieval is routed through `lib/retrievalAdapter.ts`
 - Local deterministic fallback is preserved when the backend is not running
 - Retrieved evidence now carries source/day/location/active/tag metadata into the UI
 - Evidence panel now shows developer-facing `Evidence Source` and `Reaction Source` badges
-- Browser console now logs retrieval sync lines with `evidence=backend|local` and `reactions=backend|local|not-requested`
+- Browser console now logs retrieval sync lines with backend/local source plus `vector|sqlite` retrieval mode and counts when available
 - Day 8 NPC reactions can come from backend-returned structured JSON while staying aligned with the current deterministic rules
 - Inactive memories remain excluded from NPC reactions in both local and backend rule paths
 - A cheap persistence test now verifies memory metadata survives store reopen across backend restart
+- Focused retrieval tests now verify vector candidate ids still respect SQLite truth and deterministic filters
+- If Chroma is unavailable, the backend falls back to SQLite-only deterministic retrieval without changing API shapes
 
 ## Next Task
 
-Run a manual end-to-end smoke test with the FastAPI server live and confirm evidence survives backend restart, then decide whether v0.4 slice 3 should add richer query/debug tooling or begin vector-store integration.
+Run a manual end-to-end smoke test with the FastAPI server live, confirm `/health` reports the expected vector status, and decide whether v0.4 slice 4 should refine semantic query quality or add better debug tooling before any LLM generation work.
 
 ## Needs Testing
 
@@ -89,5 +98,7 @@ Run a manual end-to-end smoke test with the FastAPI server live and confirm evid
   - Crow Broker can use public rumors
   - Fox Merchant can use records/contracts/trade-relevant evidence
   - evidence remains available after backend restart when the same session id is reused
+  - Chroma candidate retrieval never causes inactive or inaccessible evidence to leak past SQLite/rules filtering
+  - `retrievalSource` reports `vector` when Chroma candidates are used and `sqlite` when vector fallback is active
 - Future drift risk to watch:
   - deterministic NPC rules now exist in both `lib/gameLogic.ts` and `backend/app/rules.py`

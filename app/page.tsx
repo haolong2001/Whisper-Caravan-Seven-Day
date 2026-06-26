@@ -7,7 +7,7 @@ import { GameScene } from "@/components/GameScene";
 import { MemoryCollapsePanel } from "@/components/MemoryCollapsePanel";
 import { MemoryPanel } from "@/components/MemoryPanel";
 import { StatusPanel } from "@/components/StatusPanel";
-import { ChoiceId, NpcReaction, RetrievedEvidence } from "@/lib/types";
+import { ChoiceId, NpcReaction, RetrievedEvidence, RetrievalDebug } from "@/lib/types";
 import {
   day8Aftermath,
   initialGameState,
@@ -52,6 +52,8 @@ export default function Home() {
   const [npcReactions, setNpcReactions] = useState<NpcReaction[] | null>(null);
   const [evidenceSource, setEvidenceSource] = useState<"backend" | "local">("local");
   const [reactionSource, setReactionSource] = useState<"backend" | "local">("local");
+  const [evidenceDebug, setEvidenceDebug] = useState<RetrievalDebug | null>(null);
+  const [reactionDebug, setReactionDebug] = useState<RetrievalDebug | null>(null);
 
   useEffect(() => {
     const localEvidence = isDay8Aftermath ? activeEvidence : activePublicEvidence;
@@ -61,6 +63,8 @@ export default function Home() {
     setNpcReactions(localReactions);
     setEvidenceSource("local");
     setReactionSource("local");
+    setEvidenceDebug(null);
+    setReactionDebug(null);
 
     let cancelled = false;
 
@@ -83,6 +87,8 @@ export default function Home() {
       let nextEvidenceSource = evidenceResult.source;
       let nextReactionSource: "backend" | "local" = "local";
       let nextNpcReactions: NpcReaction[] | null = null;
+      const nextEvidenceDebug = evidenceResult.source === "backend" ? evidenceResult.data.debug ?? null : null;
+      let nextReactionDebug: RetrievalDebug | null = null;
 
       if (isDay8Aftermath) {
         const reactionsResult = await getAllNpcReactions(sessionId, gameState);
@@ -93,17 +99,27 @@ export default function Home() {
 
         nextNpcReactions = reactionsResult.data;
         nextReactionSource = reactionsResult.source;
+        nextReactionDebug =
+          reactionsResult.source === "backend"
+            ? reactionsResult.data.find((reaction) => reaction.debug)?.debug ?? null
+            : null;
       }
 
       setRetrievedEvidence(evidenceResult.data.evidence);
       setNpcReactions(nextNpcReactions);
       setEvidenceSource(nextEvidenceSource);
       setReactionSource(nextReactionSource);
+      setEvidenceDebug(nextEvidenceDebug);
+      setReactionDebug(nextReactionDebug);
 
       const reactionStatus = isDay8Aftermath ? nextReactionSource : "not-requested";
+      const evidenceRetrieval = nextEvidenceDebug?.retrievalSource ?? "n/a";
+      const reactionRetrieval = isDay8Aftermath
+        ? nextReactionDebug?.retrievalSource ?? "n/a"
+        : "not-requested";
 
       console.info(
-        `[Whisper Caravan] retrieval sync day=${gameState.currentDay} evidence=${nextEvidenceSource} reactions=${reactionStatus} session=${sessionId}`
+        `[Whisper Caravan] retrieval sync day=${gameState.currentDay} evidence=${nextEvidenceSource}/${evidenceRetrieval} candidates=${nextEvidenceDebug?.candidateCount ?? "n/a"} resolved=${nextEvidenceDebug?.resolvedCandidateCount ?? "n/a"} filtered=${nextEvidenceDebug?.filteredEvidenceCount ?? "n/a"} reactions=${reactionStatus}/${reactionRetrieval} reactionFiltered=${nextReactionDebug?.filteredEvidenceCount ?? "n/a"} session=${sessionId}`
       );
     }
 
@@ -223,6 +239,8 @@ export default function Home() {
             npcReactions={npcReactions}
             evidenceSource={evidenceSource}
             reactionSource={isDay8Aftermath ? reactionSource : null}
+            evidenceDebug={evidenceDebug}
+            reactionDebug={isDay8Aftermath ? reactionDebug : null}
           />
         )}
       </div>

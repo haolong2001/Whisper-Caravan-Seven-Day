@@ -4,7 +4,7 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 from .schemas import BackendMemoryRecord
 
@@ -178,6 +178,49 @@ class SQLiteSessionStore:
             ).fetchall()
 
         return [self._deserialize_memory(row) for row in rows]
+
+    def get_memories_by_ids(
+        self, session_id: str, memory_ids: List[str]
+    ) -> List[BackendMemoryRecord]:
+        normalized_session_id = self._normalize_session_id(session_id)
+
+        if not memory_ids:
+            return []
+
+        placeholders = ", ".join("?" for _ in memory_ids)
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    memory_id,
+                    title,
+                    text,
+                    day,
+                    type,
+                    source,
+                    source_npc_id,
+                    location,
+                    faction,
+                    visibility,
+                    reliability,
+                    active,
+                    expires_on_day,
+                    tags_json,
+                    evidence_role,
+                    persistent
+                FROM memories
+                WHERE session_id = ?
+                AND memory_id IN ({placeholders})
+                """,
+                (normalized_session_id, *memory_ids),
+            ).fetchall()
+
+        mapped_rows: Dict[str, BackendMemoryRecord] = {
+            row["memory_id"]: self._deserialize_memory(row) for row in rows
+        }
+
+        return [mapped_rows[memory_id] for memory_id in memory_ids if memory_id in mapped_rows]
 
     def health_info(self) -> dict:
         return {

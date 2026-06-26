@@ -13,6 +13,7 @@ import {
   MemoryQueryResult,
   NpcId,
   NpcReaction,
+  RetrievalDebug,
 } from "@/lib/types";
 
 type BackendSource = "backend" | "local";
@@ -25,6 +26,10 @@ type BackendResult<T> = {
 type IngestResponse = {
   sessionId: string;
   ingestedCount: number;
+};
+
+type DebuggableNpcReaction = NpcReaction & {
+  debug?: RetrievalDebug;
 };
 
 type ReactionRequest = {
@@ -98,7 +103,10 @@ export async function queryMemories(
     return { data, source: "backend" };
   } catch {
     return {
-      data: queryMemoriesLocally(memories, request),
+      data: {
+        ...queryMemoriesLocally(memories, request),
+        debug: undefined,
+      },
       source: "local",
     };
   }
@@ -118,7 +126,7 @@ export async function getNpcReactionFromBackend(
   };
 
   try {
-    const data = await postJson<NpcReaction>("/npc/reaction", payload);
+    const data = await postJson<DebuggableNpcReaction>("/npc/reaction", payload);
     return { data, source: "backend" };
   } catch {
     const profile = getNpcProfileById(npcId);
