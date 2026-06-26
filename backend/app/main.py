@@ -21,7 +21,7 @@ from .store import store
 from .vector_store import vector_store
 
 
-app = FastAPI(title="Whisper Caravan v0.4 Backend", version="0.4.0-slice3")
+app = FastAPI(title="Whisper Caravan v0.4 Backend", version="0.4.0-slice4-step1")
 
 app.add_middleware(
     CORSMiddleware,

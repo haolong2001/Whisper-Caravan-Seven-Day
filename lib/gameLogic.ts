@@ -47,6 +47,28 @@ export function toRetrievedEvidence(memory: MemoryItem): RetrievedEvidence {
   };
 }
 
+function compareText(left: string, right: string) {
+  if (left === right) {
+    return 0;
+  }
+
+  return left < right ? -1 : 1;
+}
+
+function compareEvidence(left: RetrievedEvidence, right: RetrievedEvidence) {
+  return (
+    right.metadata.day - left.metadata.day ||
+    right.reliability - left.reliability ||
+    compareText(left.title, right.title) ||
+    compareText(left.metadata.source, right.metadata.source) ||
+    compareText(left.memoryId, right.memoryId)
+  );
+}
+
+function sortRetrievedEvidence<T extends RetrievedEvidence>(evidence: T[]) {
+  return [...evidence].sort(compareEvidence);
+}
+
 export function toBackendMemoryRecord(memory: MemoryItem): BackendMemoryRecord {
   return {
     memoryId: memory.id,
@@ -193,7 +215,7 @@ export function getExpiredMemories(memories: MemoryItem[]) {
 }
 
 export function getActiveEvidence(memories: MemoryItem[]): RetrievedEvidence[] {
-  return memories.filter((memory) => memory.active).map(toRetrievedEvidence);
+  return sortRetrievedEvidence(memories.filter((memory) => memory.active).map(toRetrievedEvidence));
 }
 
 export function getActivePublicEvidence(memories: MemoryItem[]): RetrievedEvidence[] {
@@ -236,7 +258,7 @@ export function queryMemoriesLocally(
     );
   }
 
-  const evidence = filtered.map(toRetrievedEvidence);
+  const evidence = sortRetrievedEvidence(filtered.map(toRetrievedEvidence));
 
   return {
     evidence: typeof request.limit === "number" ? evidence.slice(0, request.limit) : evidence,
@@ -368,7 +390,9 @@ export function getNpcEvidenceEvaluations(
   const activeEvidence = getActiveEvidence(memories);
   const visibleEvidence = activeEvidence.filter((evidence) => canNpcSeeEvidence(profile, evidence));
 
-  return activeEvidence.map((evidence) => evaluateEvidenceForNpc(profile, evidence, visibleEvidence));
+  return sortRetrievedEvidence(
+    activeEvidence.map((evidence) => evaluateEvidenceForNpc(profile, evidence, visibleEvidence))
+  );
 }
 
 function getAcceptedNpcEvidence(

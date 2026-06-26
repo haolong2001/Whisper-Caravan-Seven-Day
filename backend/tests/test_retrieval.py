@@ -244,6 +244,162 @@ class RetrievalCandidateTests(unittest.TestCase):
         self.assertEqual(debug.retrievalSource, "sqlite")
         self.assertEqual(debug.candidateCount, 0)
 
+    def test_query_result_order_does_not_follow_vector_candidate_order(self):
+        self.store.upsert_memories(
+            self.session_id,
+            [
+                make_memory(
+                    "older-strong",
+                    title="Older Strong Record",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.95,
+                    active=True,
+                    day=6,
+                    source="Archive Ledger",
+                ),
+                make_memory(
+                    "newer-strong",
+                    title="Newer Strong Record",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.91,
+                    active=True,
+                    day=8,
+                    source="Gate Clerk",
+                ),
+                make_memory(
+                    "newer-weak",
+                    title="Newer Weak Record",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.72,
+                    active=True,
+                    day=8,
+                    source="Market Board",
+                ),
+            ],
+        )
+
+        request = QueryRequest(sessionId=self.session_id, activeOnly=True)
+        vector_store = FakeVectorStore(["older-strong", "newer-weak", "newer-strong"])
+        resolution = resolve_candidate_memories_for_query(self.store, vector_store, request)
+        result = query_memories(resolution.memories, request)
+
+        self.assertEqual(
+            [memory.memoryId for memory in resolution.memories],
+            ["older-strong", "newer-weak", "newer-strong"],
+        )
+        self.assertEqual(
+            [item.memoryId for item in result],
+            ["newer-strong", "newer-weak", "older-strong"],
+        )
+
+    def test_reaction_evidence_order_does_not_follow_vector_candidate_order(self):
+        self.store.upsert_memories(
+            self.session_id,
+            [
+                make_memory(
+                    "accepted-older",
+                    title="Accepted Older",
+                    memory_type="song",
+                    visibility="public",
+                    reliability=0.94,
+                    active=True,
+                    day=7,
+                    source="Old Ballad",
+                ),
+                make_memory(
+                    "accepted-newer-low",
+                    title="Accepted Newer Low",
+                    memory_type="rumor",
+                    visibility="public",
+                    reliability=0.55,
+                    active=True,
+                    day=8,
+                    source="Street Talk",
+                ),
+                make_memory(
+                    "accepted-newer-high",
+                    title="Accepted Newer High",
+                    memory_type="short_term",
+                    visibility="private",
+                    reliability=0.92,
+                    active=True,
+                    day=8,
+                    source="Fresh Witness",
+                ),
+                make_memory(
+                    "rejected-older",
+                    title="Rejected Older",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.9,
+                    active=True,
+                    day=6,
+                    source="Court Archive",
+                ),
+                make_memory(
+                    "rejected-newer",
+                    title="Rejected Newer",
+                    memory_type="contract",
+                    visibility="private",
+                    reliability=0.97,
+                    active=True,
+                    day=8,
+                    source="Private Contract",
+                ),
+            ],
+        )
+
+        request = ReactionRequest(
+            sessionId=self.session_id,
+            npcId="crowBroker",
+            currentDay=8,
+            factions={
+                "deerVillage": 0,
+                "refugees": 0,
+                "foxMarket": 0,
+                "crowBrokers": 0,
+                "bearCourt": 0,
+            },
+            resources={"silver": 0, "medicine": 0, "provisions": 0, "legalRisk": 0},
+        )
+        vector_store = FakeVectorStore(
+            [
+                "rejected-older",
+                "accepted-newer-low",
+                "accepted-older",
+                "rejected-newer",
+                "accepted-newer-high",
+            ]
+        )
+        resolution = resolve_candidate_memories_for_reaction(
+            self.store,
+            vector_store,
+            request,
+        )
+        reaction = build_npc_reaction("crowBroker", resolution.memories, {"crowBrokers": 0})
+
+        self.assertEqual(
+            [memory.memoryId for memory in resolution.memories],
+            [
+                "rejected-older",
+                "accepted-newer-low",
+                "accepted-older",
+                "rejected-newer",
+                "accepted-newer-high",
+            ],
+        )
+        self.assertEqual(
+            [item.memoryId for item in reaction.acceptedEvidence],
+            ["accepted-newer-high", "accepted-newer-low", "accepted-older"],
+        )
+        self.assertEqual(
+            [item.memoryId for item in reaction.rejectedEvidence],
+            ["rejected-newer", "rejected-older"],
+        )
+
     def test_unresolved_vector_candidate_ids_are_dropped_before_rules_apply(self):
         self.store.upsert_memories(
             self.session_id,

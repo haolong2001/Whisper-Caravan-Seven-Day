@@ -32,6 +32,10 @@ v0.4.0 slice 3 is now in place:
 
 The backend now adds a Chroma-backed candidate retrieval layer with local deterministic embeddings. Chroma only suggests candidate memory ids; SQLite remains authoritative, and all active/visibility/type/reliability/NPC access filtering still happens deterministically after SQLite resolution.
 
+v0.4.0 slice 4 step 1 is now in place:
+
+Query evidence and Day 8 reaction evidence now use deterministic post-filter ordering based only on authoritative fields, so manual playtests stay stable across vector/sqlite backend paths and local fallback. Vector candidate order no longer determines final response order.
+
 Current v0.4 Goal
 
 Stand up the real retrieval backend in small deterministic slices: stable API contract first, metadata filtering first, no LLM generation yet, no Chroma yet, and no major frontend rewrite.
@@ -57,7 +61,7 @@ Read `docs/GAME_SYSTEMS.md` only when changing:
 
 ## Last Completed
 
-v0.4.0 slice 3: Chroma candidate retrieval layered under SQLite authority.
+v0.4.0 slice 4 step 1: deterministic post-filter evidence ordering.
 
 Verification on June 27, 2026:
 
@@ -70,8 +74,11 @@ Verification on June 27, 2026:
 - Backend vector candidates now use Chroma at `backend/data/chroma` when available
 - Backend embeddings are local and deterministic in `backend/app/embeddings.py`
 - Backend query and reaction responses now include optional debug metadata for `retrievalSource`, candidate counts, and filtered counts
+- Backend query evidence ordering is now deterministic by day desc, reliability desc, title asc, source asc, memory id asc
+- Backend reaction accepted/rejected evidence lists now use the same deterministic ordering within each group
 - Frontend retrieval is routed through `lib/retrievalAdapter.ts`
 - Local deterministic fallback is preserved when the backend is not running
+- Local fallback evidence and Day 8 reaction lists now mirror the same deterministic ordering policy
 - Retrieved evidence now carries source/day/location/active/tag metadata into the UI
 - Evidence panel now shows developer-facing `Evidence Source` and `Reaction Source` badges
 - Browser console now logs retrieval sync lines with backend/local source plus `vector|sqlite` retrieval mode and counts when available
@@ -83,7 +90,7 @@ Verification on June 27, 2026:
 
 ## Next Task
 
-Run a manual end-to-end smoke test with the FastAPI server live, confirm `/health` reports the expected vector status, and decide whether v0.4 slice 4 should refine semantic query quality or add better debug tooling before any LLM generation work.
+Run a manual end-to-end smoke test with the FastAPI server live, confirm the new deterministic ordering is visible in the Evidence panel and Day 8 NPC lists, and then decide whether the next v0.4 slice 4 step should focus on retrieval query tuning or additional debug polish.
 
 ## Needs Testing
 
@@ -100,5 +107,6 @@ Run a manual end-to-end smoke test with the FastAPI server live, confirm `/healt
   - evidence remains available after backend restart when the same session id is reused
   - Chroma candidate retrieval never causes inactive or inaccessible evidence to leak past SQLite/rules filtering
   - `retrievalSource` reports `vector` when Chroma candidates are used and `sqlite` when vector fallback is active
+  - final evidence order stays stable even when vector candidate ids arrive in a different order
 - Future drift risk to watch:
   - deterministic NPC rules now exist in both `lib/gameLogic.ts` and `backend/app/rules.py`

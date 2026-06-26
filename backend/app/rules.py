@@ -81,6 +81,24 @@ def to_retrieved_evidence(memory: BackendMemoryRecord) -> RetrievedEvidence:
     )
 
 
+def _evidence_sort_key(evidence: RetrievedEvidence) -> tuple:
+    return (
+        -evidence.metadata.day,
+        -evidence.reliability,
+        evidence.title.casefold(),
+        evidence.metadata.source.casefold(),
+        evidence.memoryId,
+    )
+
+
+def _sort_retrieved_evidence(evidence: List[RetrievedEvidence]) -> List[RetrievedEvidence]:
+    return sorted(evidence, key=_evidence_sort_key)
+
+
+def _sort_evaluated_evidence(evidence: List[EvaluatedEvidence]) -> List[EvaluatedEvidence]:
+    return sorted(evidence, key=_evidence_sort_key)
+
+
 def query_memories(memories: List[BackendMemoryRecord], request: QueryRequest) -> List[RetrievedEvidence]:
     profile = get_profile(request.npcId) if request.npcId else None
     filtered = list(memories)
@@ -110,7 +128,7 @@ def query_memories(memories: List[BackendMemoryRecord], request: QueryRequest) -
             and memory.reliability >= profile.minReliability
         ]
 
-    evidence = [to_retrieved_evidence(memory) for memory in filtered]
+    evidence = _sort_retrieved_evidence([to_retrieved_evidence(memory) for memory in filtered])
 
     if request.limit is not None:
         return evidence[: request.limit]
@@ -488,8 +506,12 @@ def build_npc_reaction(
         raise ValueError(f"Unknown NPC profile: {npc_id}")
 
     evaluations = get_npc_evaluations(profile, memories)
-    accepted_evidence = [item for item in evaluations if item.decision == "accepted"]
-    rejected_evidence = [item for item in evaluations if item.decision == "rejected"]
+    accepted_evidence = _sort_evaluated_evidence(
+        [item for item in evaluations if item.decision == "accepted"]
+    )
+    rejected_evidence = _sort_evaluated_evidence(
+        [item for item in evaluations if item.decision == "rejected"]
+    )
 
     if profile.id == "deerGuard":
         return _build_deer_guard_reaction(profile, factions, accepted_evidence, rejected_evidence)
