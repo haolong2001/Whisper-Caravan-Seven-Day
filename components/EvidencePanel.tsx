@@ -1,11 +1,10 @@
-import { BearCourtPreview, GameEffects, RetrievedEvidence } from "@/lib/types";
+import { EvaluatedEvidence, NpcReaction, RetrievedEvidence } from "@/lib/types";
 
 type EvidencePanelProps = {
   headline: string;
-  npcResponse: string;
+  overviewText: string;
   retrievedEvidence: RetrievedEvidence[];
-  gameEffects: GameEffects | null;
-  bearCourtPreview?: BearCourtPreview | null;
+  npcReactions?: NpcReaction[] | null;
 };
 
 function EvidenceList({
@@ -39,7 +38,10 @@ function EvidenceList({
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-                  {memory.sourceType}
+                  {memory.sourceType.replace("_", " ")}
+                </span>
+                <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                  {memory.visibility}
                 </span>
                 <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
                   {memory.evidenceRole}
@@ -58,129 +60,203 @@ function EvidenceList({
   );
 }
 
+function JudgmentList({
+  title,
+  evidence,
+  emptyText,
+  tone,
+}: {
+  title: string;
+  evidence: EvaluatedEvidence[];
+  emptyText: string;
+  tone: "accepted" | "rejected";
+}) {
+  const toneClasses =
+    tone === "accepted"
+      ? "border-emerald-300/20 bg-emerald-400/10"
+      : "border-rose-300/20 bg-rose-400/10";
+  const badgeClasses =
+    tone === "accepted"
+      ? "border-emerald-200/20 text-emerald-100"
+      : "border-rose-200/20 text-rose-100";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <p
+          className={`text-xs uppercase tracking-[0.25em] ${
+            tone === "accepted" ? "text-emerald-200/70" : "text-rose-200/70"
+          }`}
+        >
+          {title}
+        </p>
+        <span className="text-xs uppercase tracking-[0.25em] text-stone-400">
+          {evidence.length} items
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {evidence.length === 0 ? (
+          <p className="text-sm text-stone-400">{emptyText}</p>
+        ) : (
+          evidence.map((item) => (
+            <article
+              key={`${tone}-${item.memoryId}`}
+              className={`rounded-2xl border p-4 ${toneClasses}`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.28em] ${badgeClasses}`}
+                >
+                  {item.sourceType.replace("_", " ")}
+                </span>
+                <span
+                  className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.28em] ${badgeClasses}`}
+                >
+                  {item.visibility}
+                </span>
+                <span
+                  className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.28em] ${badgeClasses}`}
+                >
+                  {item.evidenceRole}
+                </span>
+                <span
+                  className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.28em] ${badgeClasses}`}
+                >
+                  reliability {Math.round(item.reliability * 100)}%
+                </span>
+              </div>
+              <h3 className="mt-3 text-base font-semibold text-white">{item.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-stone-300">{item.text}</p>
+              <p className="mt-3 text-sm leading-6 text-stone-200">{item.decisionReason}</p>
+            </article>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NpcReactionCard({ reaction }: { reaction: NpcReaction }) {
+  return (
+    <article className="rounded-3xl border border-white/10 bg-black/20 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-amber-100/60">
+            {reaction.profile.faction}
+          </p>
+          <h3 className="mt-2 text-2xl font-semibold text-white">{reaction.profile.name}</h3>
+        </div>
+        <div className="text-right text-xs uppercase tracking-[0.25em] text-stone-400">
+          <div>min reliability {Math.round(reaction.profile.minReliability * 100)}%</div>
+          <div className="mt-1">
+            scopes {reaction.profile.visibleMemoryScopes.join(" / ")}
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-sm leading-7 text-stone-200">{reaction.dialogue}</p>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <JudgmentList
+          title="Accepted Evidence"
+          evidence={reaction.acceptedEvidence}
+          emptyText="This NPC accepts nothing from the active memory stack."
+          tone="accepted"
+        />
+        <JudgmentList
+          title="Rejected Evidence"
+          evidence={reaction.rejectedEvidence}
+          emptyText="This NPC rejects nothing from the active memory stack."
+          tone="rejected"
+        />
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <p className="text-xs uppercase tracking-[0.25em] text-amber-100/70">
+          Reaction Effects
+        </p>
+        <dl className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+              trustDelta
+            </dt>
+            <dd className="mt-1 text-xl font-semibold text-white">
+              {reaction.effects.trustDelta}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+              priceModifier
+            </dt>
+            <dd className="mt-1 text-xl font-semibold text-white">
+              x{reaction.effects.priceModifier.toFixed(2)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+              questAvailable
+            </dt>
+            <dd className="mt-1 text-xl font-semibold text-white">
+              {reaction.effects.questAvailable ? "true" : "false"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+              legalRiskDelta
+            </dt>
+            <dd className="mt-1 text-xl font-semibold text-white">
+              {reaction.effects.legalRiskDelta}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </article>
+  );
+}
+
 export function EvidencePanel({
   headline,
-  npcResponse,
+  overviewText,
   retrievedEvidence,
-  gameEffects,
-  bearCourtPreview = null,
+  npcReactions = null,
 }: EvidencePanelProps) {
   return (
     <section className="panel panel-glow rounded-3xl p-6 shadow-panel">
       <div className="mb-6">
         <p className="text-xs uppercase tracking-[0.35em] text-amber-100/70">
-          NPC Response / Retrieved Evidence
+          NPC Access / Retrieved Evidence
         </p>
         <h2 className="font-display mt-3 text-3xl text-parchment">{headline}</h2>
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
-        <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">
-          Response
-        </p>
-        <p className="mt-3 text-base leading-7 text-stone-200">{npcResponse}</p>
+        <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">Overview</p>
+        <p className="mt-3 text-base leading-7 text-stone-200">{overviewText}</p>
       </div>
 
       <EvidenceList
-        title="Retrieved Evidence"
+        title={npcReactions ? "Active Memory Evidence" : "Retrieved Evidence"}
         evidence={retrievedEvidence}
-        emptyText="No public evidence is active yet."
+        emptyText="No evidence is active yet."
       />
 
-      {bearCourtPreview ? (
-        <div className="mt-6 rounded-3xl border border-white/10 bg-black/20 p-5">
-          <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">
-            Bear Court Preview
-          </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/70">
-                Accepted Evidence
-              </p>
-              <div className="mt-3 space-y-3">
-                {bearCourtPreview.acceptedEvidence.length === 0 ? (
-                  <p className="text-sm text-stone-400">Nothing clears the court threshold.</p>
-                ) : (
-                  bearCourtPreview.acceptedEvidence.map((item) => (
-                    <div
-                      key={`accepted-${item.memoryId}`}
-                      className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-3 text-sm text-stone-200"
-                    >
-                      {item.title}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-rose-200/70">
-                Rejected Evidence
-              </p>
-              <div className="mt-3 space-y-3">
-                {bearCourtPreview.rejectedEvidence.length === 0 ? (
-                  <p className="text-sm text-stone-400">No weak or neutral public traces remain.</p>
-                ) : (
-                  bearCourtPreview.rejectedEvidence.map((item) => (
-                    <div
-                      key={`rejected-${item.memoryId}`}
-                      className="rounded-2xl border border-rose-300/20 bg-rose-400/10 p-3 text-sm text-stone-200"
-                    >
-                      {item.title}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+      {npcReactions ? (
+        <div className="mt-6 space-y-5">
+          <div>
+            <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">
+              Day 8 NPC Reactions
+            </p>
+            <p className="mt-2 text-sm leading-6 text-stone-300">
+              Each NPC applies its own visibility, type, and reliability rules to the
+              same active memory stack.
+            </p>
           </div>
+          {npcReactions.map((reaction) => (
+            <NpcReactionCard key={reaction.profile.id} reaction={reaction} />
+          ))}
         </div>
       ) : null}
-
-      <div className="mt-6 rounded-3xl border border-emerald-300/15 bg-emerald-400/10 p-5">
-        <p className="text-sm uppercase tracking-[0.25em] text-emerald-100/80">
-          Game State Effects
-        </p>
-        {gameEffects ? (
-          <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs uppercase tracking-[0.28em] text-emerald-100/60">
-                trustDelta
-              </dt>
-              <dd className="mt-2 text-2xl font-semibold text-white">
-                {gameEffects.trustDelta}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-[0.28em] text-emerald-100/60">
-                priceModifier
-              </dt>
-              <dd className="mt-2 text-2xl font-semibold text-white">
-                x{gameEffects.priceModifier.toFixed(1)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-[0.28em] text-emerald-100/60">
-                questAvailable
-              </dt>
-              <dd className="mt-2 text-2xl font-semibold text-white">
-                {gameEffects.questAvailable ? "true" : "false"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-[0.28em] text-emerald-100/60">
-                legalRiskDelta
-              </dt>
-              <dd className="mt-2 text-2xl font-semibold text-white">
-                {gameEffects.legalRiskDelta}
-              </dd>
-            </div>
-          </dl>
-        ) : (
-          <p className="mt-3 text-sm leading-6 text-stone-200">
-            Day 8 applies the guard's retrieval logic and fills in these downstream
-            effects.
-          </p>
-        )}
-      </div>
     </section>
   );
 }

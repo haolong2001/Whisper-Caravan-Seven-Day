@@ -69,7 +69,7 @@ export function MemoryCollapsePanel({ preview }: MemoryCollapsePanelProps) {
             title: item.title,
             text: item.text,
           }))}
-          emptyText="No public record, song, or rumor survives into Day 8."
+          emptyText="No public record, contract, song, or rumor survives into Day 8."
         />
       </div>
     </section>

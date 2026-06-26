@@ -16,6 +16,14 @@ v0.2 implements
 
 7 daily events → choices create memories → Memory Inspector updates → Day 7 collapse preview → Day 8 forgetting → NPC reacts based on remaining active evidence.
 
+v0.3.0 has started with the first small slice:
+
+Day 8 now shows deterministic Bear Court accepted/rejected evidence, inactive memories stay out of court retrieval, and unsupported rumors are explicitly rejected client-side.
+
+The second v0.3.0 slice is now in place:
+
+Deer Guard, Fox Merchant, Crow Broker, and Bear Judge each have explicit profiles, distinct visibility/type/reliability rules, and deterministic Day 8 reactions over the same active memory stack.
+
 Current v0.3 Goal
 
 Improve consequence clarity, evidence categories, NPC access rules, and Day 8 judgment presentation without adding backend, LLM, vector database, save/load, combat, inventory, or map screen.
@@ -41,17 +49,22 @@ Read `docs/GAME_SYSTEMS.md` only when changing:
 
 ## Last Completed
 
-v0.2 seven-day memory loop.
+v0.3.0 slice 2: explicit NPC profiles and per-NPC access rules.
 
 Verification on June 26, 2026:
 
 - `npm run build` passes
 - Day 1 → Day 8 loop is closed in current state orchestration and pure game rules
-- Day 7 collapse preview and Day 8 Deer Guard aftermath are wired into the main flow
+- Day 7 collapse preview and Day 8 multi-NPC aftermath are wired into the main flow
+- Deer Guard, Fox Merchant, Crow Broker, and Bear Judge now use explicit profiles from `lib/mockData.ts`
+- NPC retrieval now filters by active status, visibility scope, memory type, and reliability in `lib/gameLogic.ts`
+- Day 8 UI explains why each NPC accepted or rejected each active memory
+- Bear Judge still rejects unsupported rumors deterministically in client-side game logic
+- Inactive memories are excluded from all NPC reactions
 
 ## Next Task
 
-Start v0.3 with a small vertical slice from `docs/versions/v0.3.md`.
+Continue v0.3 by tightening faction-aware reaction differences and refining any weak spots in the current visibility/reliability explanation UI.
 
 ## Needs Testing
 

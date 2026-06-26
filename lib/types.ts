@@ -1,6 +1,6 @@
 export type ChoiceId = "A" | "B" | "C" | "D";
 
-export type MemoryType = "short_term" | "record" | "song" | "rumor";
+export type MemoryType = "short_term" | "record" | "contract" | "song" | "rumor";
 
 export type MemoryVisibility = "private" | "public";
 
@@ -12,6 +12,8 @@ export type FactionKey =
   | "foxMarket"
   | "crowBrokers"
   | "bearCourt";
+
+export type NpcId = "deerGuard" | "foxMerchant" | "crowBroker" | "bearJudge";
 
 export type FactionState = Record<FactionKey, number>;
 
@@ -86,20 +88,32 @@ export type RetrievedEvidence = {
   title: string;
   text: string;
   reliability: number;
-  sourceType: Exclude<MemoryType, "short_term">;
+  sourceType: MemoryType;
   evidenceRole: EvidenceRole;
+  visibility: MemoryVisibility;
 };
 
-export type BearCourtPreview = {
-  acceptedEvidence: RetrievedEvidence[];
-  rejectedEvidence: RetrievedEvidence[];
+export type NPCProfile = {
+  id: NpcId;
+  name: string;
+  faction: FactionKey;
+  acceptedMemoryTypes: MemoryType[];
+  rejectedMemoryTypes: MemoryType[];
+  visibleMemoryScopes: MemoryVisibility[];
+  minReliability: number;
+};
+
+export type EvaluatedEvidence = RetrievedEvidence & {
+  decision: "accepted" | "rejected";
+  decisionReason: string;
 };
 
 export type NpcReaction = {
+  profile: NPCProfile;
   dialogue: string;
   effects: GameEffects;
-  evidence: RetrievedEvidence[];
-  bearCourtPreview?: BearCourtPreview;
+  acceptedEvidence: EvaluatedEvidence[];
+  rejectedEvidence: EvaluatedEvidence[];
 };
 
 export type DailyChoiceRecord = {

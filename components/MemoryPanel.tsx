@@ -9,6 +9,7 @@ type MemoryPanelProps = {
 const typeStyles: Record<MemoryItem["type"], string> = {
   short_term: "border-sky-300/25 bg-sky-400/10 text-sky-100",
   record: "border-rose-300/25 bg-rose-400/10 text-rose-100",
+  contract: "border-violet-300/25 bg-violet-400/10 text-violet-100",
   song: "border-emerald-300/25 bg-emerald-400/10 text-emerald-100",
   rumor: "border-orange-300/25 bg-orange-400/10 text-orange-100",
 };
@@ -28,8 +29,9 @@ export function MemoryPanel({ memories, activeCount, expiredCount }: MemoryPanel
           </div>
         </div>
         <p className="mt-2 text-sm leading-6 text-stone-300">
-          Short-term memories expire seven days after creation. Public records, songs,
-          and rumors remain available to retrieval on Day 8.
+          Short-term memories expire seven days after creation. Records, contracts,
+          songs, rumors, and fresher witness traces may still matter on Day 8
+          depending on who is allowed to know them.
         </p>
       </div>
 

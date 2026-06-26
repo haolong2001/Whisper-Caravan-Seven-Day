@@ -15,11 +15,12 @@ import {
 } from "@/lib/mockData";
 import {
   applyChoice,
+  getActiveEvidence,
   applyDay8Transition,
   advanceDay,
   getActiveMemories,
   getActivePublicEvidence,
-  getDeerGuardReaction,
+  getDay8NpcReactions,
   getEventForDay,
   getExpiredMemories,
   getMemoryCollapsePreview,
@@ -35,27 +36,23 @@ export default function Home() {
     gameState.currentDay === 7 && hasChosenToday && !gameState.hasAppliedDay8;
   const isDay8Aftermath = gameState.currentDay === 8 && gameState.hasAppliedDay8;
   const activeMemories = getActiveMemories(gameState.memories);
+  const activeEvidence = getActiveEvidence(gameState.memories);
   const expiredMemories = getExpiredMemories(gameState.memories);
   const activePublicEvidence = getActivePublicEvidence(gameState.memories);
   const memoryCollapsePreview = isDay7Collapse
     ? getMemoryCollapsePreview(gameState.memories, 8)
     : null;
-  const deerGuardReaction = isDay8Aftermath
-    ? getDeerGuardReaction(gameState.memories)
-    : null;
+  const npcReactions = isDay8Aftermath ? getDay8NpcReactions(gameState) : null;
 
-  const headline = isDay8Aftermath ? "Deer Guard Aftermath Query" : "Evidence Preview";
-  const npcResponse = deerGuardReaction
-    ? deerGuardReaction.dialogue
+  const headline = isDay8Aftermath ? "Day 8 NPC Access Board" : "Evidence Preview";
+  const overviewText = isDay8Aftermath
+    ? "Seven-day forgetting has fired. Each NPC now filters the surviving active memories through its own access profile."
     : isDay7Collapse
       ? "The caravan counts what will vanish at dawn and what the public world will keep."
       : hasChosenToday
         ? "No guard query has fired yet. The right panel is showing the active public evidence trail you have created so far."
         : initialNpcResponse;
-  const retrievedEvidence = deerGuardReaction
-    ? deerGuardReaction.evidence
-    : activePublicEvidence;
-  const gameEffects = deerGuardReaction ? deerGuardReaction.effects : null;
+  const retrievedEvidence = isDay8Aftermath ? activeEvidence : activePublicEvidence;
   const location = currentEvent?.location ?? day8Aftermath.location;
   const title = currentEvent?.title ?? day8Aftermath.title;
   const description = currentEvent?.description ?? day8Aftermath.description;
@@ -105,9 +102,9 @@ export default function Home() {
           Whisper Caravan: Seven-Day Memory
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 sm:text-base">
-          v0.2 expands the single incident demo into a seven-day loop: daily events
-          create memories, Day 7 previews the collapse boundary, and Day 8 reveals
-          what public evidence still has the power to move an NPC.
+          v0.3 now pushes Day 8 into explicit NPC filtering: the seven-day loop stays
+          intact, but Deer Guard, Fox Merchant, Crow Broker, and Bear Judge each
+          react to the surviving memory stack through different access rules.
         </p>
       </div>
 
@@ -144,10 +141,9 @@ export default function Home() {
         ) : (
           <EvidencePanel
             headline={headline}
-            npcResponse={npcResponse}
+            overviewText={overviewText}
             retrievedEvidence={retrievedEvidence}
-            gameEffects={gameEffects}
-            bearCourtPreview={deerGuardReaction?.bearCourtPreview ?? null}
+            npcReactions={npcReactions}
           />
         )}
       </div>

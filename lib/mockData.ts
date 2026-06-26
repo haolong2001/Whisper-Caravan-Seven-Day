@@ -5,6 +5,7 @@ import {
   GameResources,
   GameState,
   MemoryEffect,
+  NPCProfile,
 } from "@/lib/types";
 
 function shortTermMemory(
@@ -36,6 +37,25 @@ function publicRecord(
     title,
     text,
     type: "record",
+    visibility: "public",
+    location,
+    reliability,
+    evidenceRole,
+    persistent: true,
+  };
+}
+
+function publicContract(
+  title: string,
+  text: string,
+  location: string,
+  reliability: number,
+  evidenceRole: MemoryEffect["evidenceRole"]
+): MemoryEffect {
+  return {
+    title,
+    text,
+    type: "contract",
     visibility: "public",
     location,
     reliability,
@@ -90,7 +110,7 @@ export const initialSceneStatus =
   "Day 1 begins in Deer Village. Each choice can create memories, shift factions, and change what survives the seven-day forgetting boundary.";
 
 export const initialNpcResponse =
-  "No NPC has queried the memory trail yet. Public evidence will accumulate as the caravan moves through the week.";
+  "No NPC has queried the memory trail yet. By Day 8, Deer Guard, Fox Merchant, Crow Broker, and Bear Judge will each filter the week differently.";
 
 export const initialFactions: FactionState = {
   deerVillage: 0,
@@ -121,8 +141,47 @@ export const day8Aftermath = {
   location: "Deer Village Gate",
   title: "Day 8 Aftermath",
   description:
-    "Seven days have passed. The oldest short-term traces are gone, but public records, songs, and rumors still travel faster than a caravan can hide.",
+    "Seven days have passed. The oldest short-term traces are gone, but records, contracts, songs, rumors, and fresher witness memories still compete to define your caravan.",
 };
+
+export const npcProfiles: NPCProfile[] = [
+  {
+    id: "deerGuard",
+    name: "Deer Guard",
+    faction: "deerVillage",
+    acceptedMemoryTypes: ["record", "short_term"],
+    rejectedMemoryTypes: ["rumor"],
+    visibleMemoryScopes: ["public"],
+    minReliability: 0.65,
+  },
+  {
+    id: "foxMerchant",
+    name: "Fox Merchant",
+    faction: "foxMarket",
+    acceptedMemoryTypes: ["record", "contract", "rumor"],
+    rejectedMemoryTypes: ["song"],
+    visibleMemoryScopes: ["public", "private"],
+    minReliability: 0.55,
+  },
+  {
+    id: "crowBroker",
+    name: "Crow Broker",
+    faction: "crowBrokers",
+    acceptedMemoryTypes: ["rumor", "song", "short_term"],
+    rejectedMemoryTypes: [],
+    visibleMemoryScopes: ["public", "private"],
+    minReliability: 0.4,
+  },
+  {
+    id: "bearJudge",
+    name: "Bear Judge",
+    faction: "bearCourt",
+    acceptedMemoryTypes: ["record", "contract"],
+    rejectedMemoryTypes: ["rumor", "song"],
+    visibleMemoryScopes: ["public"],
+    minReliability: 0.7,
+  },
+];
 
 export const gameEvents: GameEvent[] = [
   {
@@ -369,7 +428,7 @@ export const gameEvents: GameEvent[] = [
         outcomeText:
           "You take the honest deal. The market records your caravan as a lawful buyer, and the fox merchants nod at a player willing to stay on the page.",
         memoryEffects: [
-          publicRecord(
+          publicContract(
             "Fox Market Contract",
             "The Fox Market ledger records the blue caravan as a lawful buyer operating on honest weights.",
             "Fox Market counting house",
