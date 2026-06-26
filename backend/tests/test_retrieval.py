@@ -66,6 +66,28 @@ class RetrievalCandidateTests(unittest.TestCase):
                     source="Retrieval Test",
                     location="Test Crossing",
                 ),
+                make_memory(
+                    "unused-song",
+                    title="Unused Song",
+                    memory_type="song",
+                    visibility="public",
+                    reliability=0.8,
+                    active=True,
+                    evidence_role="neutral",
+                    source="Retrieval Test",
+                    location="Test Crossing",
+                ),
+                make_memory(
+                    "unused-song",
+                    title="Unused Song",
+                    memory_type="song",
+                    visibility="public",
+                    reliability=0.8,
+                    active=True,
+                    evidence_role="neutral",
+                    source="Retrieval Test",
+                    location="Test Crossing",
+                ),
             ],
         )
 
@@ -115,6 +137,17 @@ class RetrievalCandidateTests(unittest.TestCase):
                     reliability=0.91,
                     active=True,
                     evidence_role="favorable",
+                    source="Retrieval Test",
+                    location="Test Crossing",
+                ),
+                make_memory(
+                    "unused-song",
+                    title="Unused Song",
+                    memory_type="song",
+                    visibility="public",
+                    reliability=0.8,
+                    active=True,
+                    evidence_role="neutral",
                     source="Retrieval Test",
                     location="Test Crossing",
                 ),
@@ -210,6 +243,57 @@ class RetrievalCandidateTests(unittest.TestCase):
         self.assertEqual([memory.memoryId for memory in memories], ["public-record"])
         self.assertEqual(debug.retrievalSource, "sqlite")
         self.assertEqual(debug.candidateCount, 0)
+
+    def test_unresolved_vector_candidate_ids_are_dropped_before_rules_apply(self):
+        self.store.upsert_memories(
+            self.session_id,
+            [
+                make_memory(
+                    "inactive-rumor",
+                    title="Inactive Rumor",
+                    memory_type="rumor",
+                    visibility="public",
+                    reliability=0.9,
+                    active=False,
+                    evidence_role="incriminating",
+                ),
+                make_memory(
+                    "public-record",
+                    title="Public Record",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.91,
+                    active=True,
+                    evidence_role="favorable",
+                    source="Retrieval Test",
+                    location="Test Crossing",
+                ),
+                make_memory(
+                    "unused-song",
+                    title="Unused Song",
+                    memory_type="song",
+                    visibility="public",
+                    reliability=0.8,
+                    active=True,
+                    evidence_role="neutral",
+                    source="Retrieval Test",
+                    location="Test Crossing",
+                ),
+            ],
+        )
+
+        request = QueryRequest(sessionId=self.session_id, npcId="bearJudge", activeOnly=True)
+        vector_store = FakeVectorStore(["missing-memory", "inactive-rumor", "public-record"])
+        resolution = resolve_candidate_memories_for_query(self.store, vector_store, request)
+        result = query_memories(resolution.memories, request)
+        debug = candidate_resolution_debug(resolution, len(result))
+
+        self.assertEqual(debug.retrievalSource, "vector")
+        self.assertEqual(debug.candidateCount, 3)
+        self.assertEqual(debug.resolvedCandidateCount, 2)
+        self.assertEqual([memory.memoryId for memory in resolution.memories], ["inactive-rumor", "public-record"])
+        self.assertEqual([item.memoryId for item in result], ["public-record"])
+        self.assertEqual(debug.filteredEvidenceCount, 1)
 
 
 if __name__ == "__main__":
