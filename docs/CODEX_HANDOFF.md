@@ -46,7 +46,7 @@ Backend vector retrieval now caps default candidate breadth at `8` when no expli
 
 Current v0.4 Goal
 
-Stand up the real retrieval backend in small deterministic slices: stable API contract first, metadata filtering first, no LLM generation yet, no Chroma yet, and no major frontend rewrite.
+Stand up the real retrieval backend in small deterministic slices: stable API contract first, metadata filtering first, deterministic candidate retrieval next, no LLM generation yet, and no major frontend rewrite.
 
 ## System Reference
 
