@@ -1,7 +1,10 @@
 import {
+  BackendMemoryRecord,
   Choice,
   EvaluatedEvidence,
   GameEvent,
+  MemoryQueryRequest,
+  MemoryQueryResult,
   GameResources,
   GameState,
   MemoryCollapsePreview,
@@ -13,7 +16,15 @@ import {
 } from "@/lib/types";
 import { day8Aftermath, gameEvents, npcProfiles } from "@/lib/mockData";
 
-function toRetrievedEvidence(memory: MemoryItem): RetrievedEvidence {
+function buildMemoryTags(effect: MemoryEffect, event: GameEvent, choice: Choice) {
+  if (effect.tags?.length) {
+    return effect.tags;
+  }
+
+  return [event.id, choice.id, effect.type, effect.visibility, effect.evidenceRole, event.location];
+}
+
+export function toRetrievedEvidence(memory: MemoryItem): RetrievedEvidence {
   return {
     memoryId: memory.id,
     title: memory.title,
@@ -22,6 +33,38 @@ function toRetrievedEvidence(memory: MemoryItem): RetrievedEvidence {
     sourceType: memory.type,
     evidenceRole: memory.evidenceRole,
     visibility: memory.visibility,
+    metadata: {
+      day: memory.createdDay,
+      source: memory.source,
+      sourceNpcId: memory.sourceNpcId,
+      location: memory.location,
+      faction: memory.faction,
+      active: memory.active,
+      expiresOnDay: memory.expiresOn,
+      tags: memory.tags,
+      persistent: memory.persistent,
+    },
+  };
+}
+
+export function toBackendMemoryRecord(memory: MemoryItem): BackendMemoryRecord {
+  return {
+    memoryId: memory.id,
+    title: memory.title,
+    text: memory.text,
+    day: memory.createdDay,
+    type: memory.type,
+    source: memory.source,
+    sourceNpcId: memory.sourceNpcId,
+    location: memory.location,
+    faction: memory.faction,
+    visibility: memory.visibility,
+    reliability: memory.reliability,
+    active: memory.active,
+    expiresOnDay: memory.expiresOn,
+    tags: memory.tags,
+    evidenceRole: memory.evidenceRole,
+    persistent: memory.persistent,
   };
 }
 
@@ -41,12 +84,16 @@ function createMemoryItem(
     type: effect.type,
     visibility: effect.visibility,
     location: effect.location,
+    source: effect.source ?? event.title,
+    sourceNpcId: effect.sourceNpcId,
+    faction: effect.faction,
     createdDay: day,
     expiresOn: persistent ? undefined : day + 7,
     persistent,
     active: true,
     reliability: effect.reliability,
     evidenceRole: effect.evidenceRole,
+    tags: buildMemoryTags(effect, event, choice),
   };
 }
 
@@ -65,6 +112,10 @@ function applyResourceEffects(resources: GameResources, effects?: Partial<GameRe
 
 export function getEventForDay(day: number) {
   return gameEvents.find((event) => event.day === day) ?? null;
+}
+
+export function getNpcProfileById(npcId: NPCProfile["id"]) {
+  return npcProfiles.find((profile) => profile.id === npcId) ?? null;
 }
 
 export function applyChoice(gameState: GameState, choice: Choice): GameState {
@@ -147,6 +198,49 @@ export function getActiveEvidence(memories: MemoryItem[]): RetrievedEvidence[] {
 
 export function getActivePublicEvidence(memories: MemoryItem[]): RetrievedEvidence[] {
   return getActiveEvidence(memories).filter((memory) => memory.visibility === "public");
+}
+
+export function queryMemoriesLocally(
+  memories: MemoryItem[],
+  request: MemoryQueryRequest
+): MemoryQueryResult {
+  const activeOnly = request.activeOnly ?? true;
+  const profile = request.npcId ? getNpcProfileById(request.npcId) : null;
+  let filtered = memories.filter((memory) => (activeOnly ? memory.active : true));
+
+  if (request.visibility?.length) {
+    filtered = filtered.filter((memory) => request.visibility?.includes(memory.visibility));
+  }
+
+  if (request.sourceTypes?.length) {
+    filtered = filtered.filter((memory) => request.sourceTypes?.includes(memory.type));
+  }
+
+  const minReliability = request.minReliability;
+
+  if (typeof minReliability === "number") {
+    filtered = filtered.filter((memory) => memory.reliability >= minReliability);
+  }
+
+  const tags = request.tags;
+
+  if (tags?.length) {
+    filtered = filtered.filter((memory) => tags.every((tag) => memory.tags.includes(tag)));
+  }
+
+  if (profile) {
+    filtered = filtered.filter(
+      (memory) =>
+        profile.visibleMemoryScopes.includes(memory.visibility) &&
+        memory.reliability >= profile.minReliability
+    );
+  }
+
+  const evidence = filtered.map(toRetrievedEvidence);
+
+  return {
+    evidence: typeof request.limit === "number" ? evidence.slice(0, request.limit) : evidence,
+  };
 }
 
 function hasSupportingLegalRecord(

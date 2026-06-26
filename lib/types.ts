@@ -30,8 +30,12 @@ export type MemoryEffect = {
   type: MemoryType;
   visibility: MemoryVisibility;
   location: string;
+  source?: string;
+  sourceNpcId?: string;
+  faction?: FactionKey;
   reliability: number;
   evidenceRole: EvidenceRole;
+  tags?: string[];
   persistent?: boolean;
 };
 
@@ -68,12 +72,16 @@ export type MemoryItem = {
   type: MemoryType;
   visibility: MemoryVisibility;
   location: string;
+  source: string;
+  sourceNpcId?: string;
+  faction?: FactionKey;
   createdDay: number;
   expiresOn?: number;
   persistent: boolean;
   active: boolean;
   reliability: number;
   evidenceRole: EvidenceRole;
+  tags: string[];
 };
 
 export type GameEffects = {
@@ -81,6 +89,18 @@ export type GameEffects = {
   priceModifier: number;
   questAvailable: boolean;
   legalRiskDelta: number;
+};
+
+export type EvidenceMetadata = {
+  day: number;
+  source: string;
+  sourceNpcId?: string;
+  location: string;
+  faction?: FactionKey;
+  active: boolean;
+  expiresOnDay?: number;
+  tags: string[];
+  persistent: boolean;
 };
 
 export type RetrievedEvidence = {
@@ -91,6 +111,7 @@ export type RetrievedEvidence = {
   sourceType: MemoryType;
   evidenceRole: EvidenceRole;
   visibility: MemoryVisibility;
+  metadata: EvidenceMetadata;
 };
 
 export type NPCProfile = {
@@ -114,6 +135,39 @@ export type NpcReaction = {
   effects: GameEffects;
   acceptedEvidence: EvaluatedEvidence[];
   rejectedEvidence: EvaluatedEvidence[];
+};
+
+export type BackendMemoryRecord = {
+  memoryId: string;
+  title: string;
+  text: string;
+  day: number;
+  type: MemoryType;
+  source: string;
+  sourceNpcId?: string;
+  location: string;
+  faction?: FactionKey;
+  visibility: MemoryVisibility;
+  reliability: number;
+  active: boolean;
+  expiresOnDay?: number;
+  tags: string[];
+  evidenceRole: EvidenceRole;
+  persistent: boolean;
+};
+
+export type MemoryQueryRequest = {
+  npcId?: NpcId;
+  activeOnly?: boolean;
+  visibility?: MemoryVisibility[];
+  sourceTypes?: MemoryType[];
+  minReliability?: number;
+  tags?: string[];
+  limit?: number;
+};
+
+export type MemoryQueryResult = {
+  evidence: RetrievedEvidence[];
 };
 
 export type DailyChoiceRecord = {

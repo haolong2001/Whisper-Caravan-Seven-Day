@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DayTracker } from "@/components/DayTracker";
 import { EvidencePanel } from "@/components/EvidencePanel";
 import { GameScene } from "@/components/GameScene";
 import { MemoryCollapsePanel } from "@/components/MemoryCollapsePanel";
 import { MemoryPanel } from "@/components/MemoryPanel";
 import { StatusPanel } from "@/components/StatusPanel";
-import { ChoiceId } from "@/lib/types";
+import { ChoiceId, NpcReaction, RetrievedEvidence } from "@/lib/types";
 import {
   day8Aftermath,
   initialGameState,
@@ -16,8 +16,8 @@ import {
 import {
   applyChoice,
   getActiveEvidence,
-  applyDay8Transition,
   advanceDay,
+  applyDay8Transition,
   getActiveMemories,
   getActivePublicEvidence,
   getDay8NpcReactions,
@@ -25,9 +25,13 @@ import {
   getExpiredMemories,
   getMemoryCollapsePreview,
 } from "@/lib/gameLogic";
+import { getAllNpcReactions, ingestMemories, queryMemories } from "@/lib/retrievalAdapter";
 
 export default function Home() {
   const [gameState, setGameState] = useState(initialGameState);
+  const [sessionId] = useState(
+    () => globalThis.crypto?.randomUUID?.() ?? "whisper-caravan-local-session"
+  );
 
   const currentEvent = getEventForDay(gameState.currentDay);
   const currentChoiceRecord = gameState.dayChoices[gameState.currentDay];
@@ -42,7 +46,81 @@ export default function Home() {
   const memoryCollapsePreview = isDay7Collapse
     ? getMemoryCollapsePreview(gameState.memories, 8)
     : null;
-  const npcReactions = isDay8Aftermath ? getDay8NpcReactions(gameState) : null;
+  const [retrievedEvidence, setRetrievedEvidence] = useState<RetrievedEvidence[]>(
+    activePublicEvidence
+  );
+  const [npcReactions, setNpcReactions] = useState<NpcReaction[] | null>(null);
+  const [evidenceSource, setEvidenceSource] = useState<"backend" | "local">("local");
+  const [reactionSource, setReactionSource] = useState<"backend" | "local">("local");
+
+  useEffect(() => {
+    const localEvidence = isDay8Aftermath ? activeEvidence : activePublicEvidence;
+    const localReactions = isDay8Aftermath ? getDay8NpcReactions(gameState) : null;
+
+    setRetrievedEvidence(localEvidence);
+    setNpcReactions(localReactions);
+    setEvidenceSource("local");
+    setReactionSource("local");
+
+    let cancelled = false;
+
+    async function syncRetrieval() {
+      await ingestMemories(sessionId, gameState.memories);
+
+      if (cancelled) {
+        return;
+      }
+
+      const evidenceResult = await queryMemories(sessionId, gameState.memories, {
+        activeOnly: true,
+        visibility: isDay8Aftermath ? undefined : ["public"],
+      });
+
+      if (cancelled) {
+        return;
+      }
+
+      let nextEvidenceSource = evidenceResult.source;
+      let nextReactionSource: "backend" | "local" = "local";
+      let nextNpcReactions: NpcReaction[] | null = null;
+
+      if (isDay8Aftermath) {
+        const reactionsResult = await getAllNpcReactions(sessionId, gameState);
+
+        if (cancelled) {
+          return;
+        }
+
+        nextNpcReactions = reactionsResult.data;
+        nextReactionSource = reactionsResult.source;
+      }
+
+      setRetrievedEvidence(evidenceResult.data.evidence);
+      setNpcReactions(nextNpcReactions);
+      setEvidenceSource(nextEvidenceSource);
+      setReactionSource(nextReactionSource);
+
+      const reactionStatus = isDay8Aftermath ? nextReactionSource : "not-requested";
+
+      console.info(
+        `[Whisper Caravan] retrieval sync day=${gameState.currentDay} evidence=${nextEvidenceSource} reactions=${reactionStatus} session=${sessionId}`
+      );
+    }
+
+    void syncRetrieval();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    gameState.currentDay,
+    gameState.factions,
+    gameState.hasAppliedDay8,
+    gameState.memories,
+    gameState.resources,
+    isDay8Aftermath,
+    sessionId,
+  ]);
 
   const headline = isDay8Aftermath ? "Day 8 NPC Access Board" : "Evidence Preview";
   const overviewText = isDay8Aftermath
@@ -52,7 +130,6 @@ export default function Home() {
       : hasChosenToday
         ? "No guard query has fired yet. The right panel is showing the active public evidence trail you have created so far."
         : initialNpcResponse;
-  const retrievedEvidence = isDay8Aftermath ? activeEvidence : activePublicEvidence;
   const location = currentEvent?.location ?? day8Aftermath.location;
   const title = currentEvent?.title ?? day8Aftermath.title;
   const description = currentEvent?.description ?? day8Aftermath.description;
@@ -102,9 +179,9 @@ export default function Home() {
           Whisper Caravan: Seven-Day Memory
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 sm:text-base">
-          v0.3 now pushes Day 8 into explicit NPC filtering: the seven-day loop stays
-          intact, but Deer Guard, Fox Merchant, Crow Broker, and Bear Judge each
-          react to the surviving memory stack through different access rules.
+          v0.4 starts the real RAG backend transition with a deterministic slice:
+          the frontend still owns the authored game loop, but evidence retrieval and
+          Day 8 NPC reactions can now flow through a minimal backend adapter.
         </p>
       </div>
 
@@ -144,6 +221,8 @@ export default function Home() {
             overviewText={overviewText}
             retrievedEvidence={retrievedEvidence}
             npcReactions={npcReactions}
+            evidenceSource={evidenceSource}
+            reactionSource={isDay8Aftermath ? reactionSource : null}
           />
         )}
       </div>

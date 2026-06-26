@@ -5,7 +5,31 @@ type EvidencePanelProps = {
   overviewText: string;
   retrievedEvidence: RetrievedEvidence[];
   npcReactions?: NpcReaction[] | null;
+  evidenceSource: "backend" | "local";
+  reactionSource?: "backend" | "local" | null;
 };
+
+function SourceBadge({
+  label,
+  source,
+}: {
+  label: string;
+  source: "backend" | "local";
+}) {
+  const toneClasses =
+    source === "backend"
+      ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
+      : "border-amber-300/25 bg-amber-400/10 text-amber-100";
+
+  return (
+    <div className={`rounded-2xl border px-3 py-2 ${toneClasses}`}>
+      <p className="text-[10px] uppercase tracking-[0.3em]">{label}</p>
+      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.24em]">
+        {source === "backend" ? "Backend" : "Local Fallback"}
+      </p>
+    </div>
+  );
+}
 
 function EvidenceList({
   title,
@@ -52,6 +76,31 @@ function EvidenceList({
               </div>
               <h3 className="mt-3 text-lg font-semibold text-white">{memory.title}</h3>
               <p className="mt-2 text-sm leading-6 text-stone-300">{memory.text}</p>
+              <dl className="mt-4 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">Source</dt>
+                  <dd className="mt-1">{memory.metadata.source}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">Day</dt>
+                  <dd className="mt-1">Day {memory.metadata.day}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+                    Location
+                  </dt>
+                  <dd className="mt-1">{memory.metadata.location}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+                    Active
+                  </dt>
+                  <dd className="mt-1">{memory.metadata.active ? "true" : "false"}</dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-xs uppercase tracking-[0.25em] text-stone-500">
+                tags {memory.metadata.tags.join(" / ")}
+              </p>
             </article>
           ))
         )}
@@ -128,6 +177,31 @@ function JudgmentList({
               </div>
               <h3 className="mt-3 text-base font-semibold text-white">{item.title}</h3>
               <p className="mt-2 text-sm leading-6 text-stone-300">{item.text}</p>
+              <dl className="mt-4 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">Source</dt>
+                  <dd className="mt-1">{item.metadata.source}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">Day</dt>
+                  <dd className="mt-1">Day {item.metadata.day}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+                    Location
+                  </dt>
+                  <dd className="mt-1">{item.metadata.location}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+                    Active
+                  </dt>
+                  <dd className="mt-1">{item.metadata.active ? "true" : "false"}</dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-xs uppercase tracking-[0.25em] text-stone-500">
+                tags {item.metadata.tags.join(" / ")}
+              </p>
               <p className="mt-3 text-sm leading-6 text-stone-200">{item.decisionReason}</p>
             </article>
           ))
@@ -220,6 +294,8 @@ export function EvidencePanel({
   overviewText,
   retrievedEvidence,
   npcReactions = null,
+  evidenceSource,
+  reactionSource = null,
 }: EvidencePanelProps) {
   return (
     <section className="panel panel-glow rounded-3xl p-6 shadow-panel">
@@ -231,8 +307,18 @@ export function EvidencePanel({
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
-        <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">Overview</p>
-        <p className="mt-3 text-base leading-7 text-stone-200">{overviewText}</p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">Overview</p>
+            <p className="mt-3 text-base leading-7 text-stone-200">{overviewText}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SourceBadge label="Evidence Source" source={evidenceSource} />
+            {reactionSource ? (
+              <SourceBadge label="Reaction Source" source={reactionSource} />
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <EvidenceList
