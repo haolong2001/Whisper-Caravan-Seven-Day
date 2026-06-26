@@ -119,7 +119,7 @@ export default function Home() {
         : "not-requested";
 
       console.info(
-        `[Whisper Caravan] retrieval sync day=${gameState.currentDay} evidence=${nextEvidenceSource}/${evidenceRetrieval} candidates=${nextEvidenceDebug?.candidateCount ?? "n/a"} resolved=${nextEvidenceDebug?.resolvedCandidateCount ?? "n/a"} filtered=${nextEvidenceDebug?.filteredEvidenceCount ?? "n/a"} reactions=${reactionStatus}/${reactionRetrieval} reactionFiltered=${nextReactionDebug?.filteredEvidenceCount ?? "n/a"} session=${sessionId}`
+        `[Whisper Caravan] retrieval sync day=${gameState.currentDay} evidenceSource=${nextEvidenceSource} evidenceMode=${evidenceRetrieval} evidenceCandidates=${nextEvidenceDebug?.candidateCount ?? "n/a"} evidenceResolved=${nextEvidenceDebug?.resolvedCandidateCount ?? "n/a"} evidenceFinal=${nextEvidenceDebug?.filteredEvidenceCount ?? "n/a"} reactionSource=${reactionStatus} reactionMode=${reactionRetrieval} reactionFinal=${nextReactionDebug?.filteredEvidenceCount ?? "n/a"} session=${sessionId}`
       );
     }
 

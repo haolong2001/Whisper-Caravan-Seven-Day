@@ -13,14 +13,25 @@ logger = logging.getLogger(__name__)
 DEFAULT_CHROMA_PATH = Path(__file__).resolve().parent.parent / "data" / "chroma"
 
 
-def _build_document(memory: BackendMemoryRecord) -> str:
+def build_candidate_document(memory: BackendMemoryRecord) -> str:
     tags_text = ", ".join(memory.tags)
+    reliability_percent = round(memory.reliability * 100)
+    source_npc_text = memory.sourceNpcId or "none"
+    faction_text = memory.faction or "none"
     return (
-        f"{memory.title}\n"
-        f"{memory.text}\n"
+        f"Title: {memory.title}\n"
+        f"Body: {memory.text}\n"
+        f"Day: {memory.day}\n"
         f"Type: {memory.type}\n"
         f"Source: {memory.source}\n"
+        f"Source NPC: {source_npc_text}\n"
         f"Location: {memory.location}\n"
+        f"Faction: {faction_text}\n"
+        f"Visibility: {memory.visibility}\n"
+        f"Reliability: {reliability_percent}\n"
+        f"Evidence Role: {memory.evidenceRole}\n"
+        f"Active: {'true' if memory.active else 'false'}\n"
+        f"Persistent: {'true' if memory.persistent else 'false'}\n"
         f"Tags: {tags_text}"
     )
 
@@ -77,7 +88,7 @@ class ChromaCandidateStore:
             return False
 
         try:
-            documents = [_build_document(memory) for memory in memories]
+            documents = [build_candidate_document(memory) for memory in memories]
             embeddings = self.provider.embed_texts(documents)
             ids = [self._vector_id(session_id, memory.memoryId) for memory in memories]
             metadatas = [

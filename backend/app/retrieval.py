@@ -14,27 +14,46 @@ class CandidateResolution:
     retrieval_source: str
 
 
+DEFAULT_VECTOR_CANDIDATE_LIMIT = 8
+VECTOR_LIMIT_MULTIPLIER = 3
+
+
+def _normalized_text_list(values: List[str] | None) -> str:
+    return " ".join(value.replace("_", " ") for value in values or [])
+
+
 def build_query_text(request: QueryRequest) -> str:
-    parts: List[str] = ["memory retrieval"]
+    parts: List[str] = ["memory", "evidence", "retrieval"]
     profile = get_profile(request.npcId) if request.npcId else None
 
     if profile:
-        parts.extend(
-            [
-                profile.name,
-                profile.faction,
-                " ".join(profile.acceptedMemoryTypes),
-            ]
-        )
+        parts.extend(["npc", profile.name, profile.faction, "accepted"])
+        parts.append(_normalized_text_list(profile.acceptedMemoryTypes))
+
+        if not request.visibility:
+            parts.extend(["visibility", _normalized_text_list(profile.visibleMemoryScopes)])
+
+        if request.minReliability is None:
+            parts.extend(["minimum", str(round(profile.minReliability * 100))])
+
+    parts.extend(
+        [
+            "active",
+            "true" if request.activeOnly else "false",
+        ]
+    )
 
     if request.sourceTypes:
-        parts.append(" ".join(request.sourceTypes))
+        parts.extend(["types", _normalized_text_list(request.sourceTypes)])
 
     if request.tags:
-        parts.append(" ".join(request.tags))
+        parts.extend(["tags", " ".join(request.tags)])
 
     if request.visibility:
-        parts.append(" ".join(request.visibility))
+        parts.extend(["visibility", _normalized_text_list(request.visibility)])
+
+    if request.minReliability is not None:
+        parts.extend(["minimum", str(round(request.minReliability * 100))])
 
     return " ".join(part for part in parts if part)
 
@@ -46,13 +65,25 @@ def build_reaction_query_text(request: ReactionRequest) -> str:
         return request.npcId
 
     return " ".join(
-        [
-            profile.name,
-            profile.faction,
-            " ".join(profile.acceptedMemoryTypes),
+        part
+        for part in [
             "reaction",
             "evidence",
+            "day",
+            str(request.currentDay),
+            "npc",
+            profile.name,
+            profile.faction,
+            "accepted",
+            _normalized_text_list(profile.acceptedMemoryTypes),
+            "rejected",
+            _normalized_text_list(profile.rejectedMemoryTypes),
+            "visibility",
+            _normalized_text_list(profile.visibleMemoryScopes),
+            "minimum",
+            str(round(profile.minReliability * 100)),
         ]
+        if part
     )
 
 
@@ -61,9 +92,19 @@ def _vector_query_limit(total_memories: int, requested_limit: int | None = None)
         return 0
 
     if requested_limit is None:
-        return total_memories
+        return min(total_memories, DEFAULT_VECTOR_CANDIDATE_LIMIT)
 
-    return min(total_memories, max(requested_limit * 3, requested_limit, 8))
+    if requested_limit <= 0:
+        return 0
+
+    return min(
+        total_memories,
+        max(
+            requested_limit * VECTOR_LIMIT_MULTIPLIER,
+            requested_limit,
+            DEFAULT_VECTOR_CANDIDATE_LIMIT,
+        ),
+    )
 
 
 def _resolve_candidates(store, session_id: str, all_memories, candidate_ids: List[str]) -> CandidateResolution:

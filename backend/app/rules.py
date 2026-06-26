@@ -131,6 +131,8 @@ def query_memories(memories: List[BackendMemoryRecord], request: QueryRequest) -
     evidence = _sort_retrieved_evidence([to_retrieved_evidence(memory) for memory in filtered])
 
     if request.limit is not None:
+        if request.limit <= 0:
+            return []
         return evidence[: request.limit]
 
     return evidence

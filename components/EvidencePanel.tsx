@@ -38,10 +38,10 @@ function SourceBadge({
       </p>
       {debug ? (
         <div className="mt-2 space-y-1 text-[10px] uppercase tracking-[0.2em] text-white/75">
-          <div>retrieval {debug.retrievalSource}</div>
-          <div>candidates {debug.candidateCount ?? "n/a"}</div>
-          <div>resolved {debug.resolvedCandidateCount ?? "n/a"}</div>
-          <div>filtered {debug.filteredEvidenceCount ?? "n/a"}</div>
+          <div>candidate mode {debug.retrievalSource}</div>
+          <div>candidate ids {debug.candidateCount ?? "n/a"}</div>
+          <div>resolved rows {debug.resolvedCandidateCount ?? "n/a"}</div>
+          <div>final results {debug.filteredEvidenceCount ?? "n/a"}</div>
         </div>
       ) : null}
     </div>

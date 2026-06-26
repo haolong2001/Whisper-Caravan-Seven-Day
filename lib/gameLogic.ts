@@ -261,7 +261,12 @@ export function queryMemoriesLocally(
   const evidence = sortRetrievedEvidence(filtered.map(toRetrievedEvidence));
 
   return {
-    evidence: typeof request.limit === "number" ? evidence.slice(0, request.limit) : evidence,
+    evidence:
+      typeof request.limit === "number"
+        ? request.limit <= 0
+          ? []
+          : evidence.slice(0, request.limit)
+        : evidence,
   };
 }
 

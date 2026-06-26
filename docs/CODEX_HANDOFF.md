@@ -36,6 +36,14 @@ v0.4.0 slice 4 step 1 is now in place:
 
 Query evidence and Day 8 reaction evidence now use deterministic post-filter ordering based only on authoritative fields, so manual playtests stay stable across vector/sqlite backend paths and local fallback. Vector candidate order no longer determines final response order.
 
+v0.4.0 slice 4 debug/manual pass is now in place:
+
+Developer-facing retrieval badges and console logs now separate response source (`backend` vs `local`) from candidate mode (`vector` vs `sqlite`) more clearly, and the manual smoke docs now cover backend/vector, backend/sqlite fallback, local fallback, and deterministic ordering checks.
+
+v0.4.0 slice 4 candidate breadth pass is now in place:
+
+Backend vector retrieval now caps default candidate breadth at `8` when no explicit request `limit` is provided, while explicit `limit` requests still use the widened candidate policy `max(limit * 3, limit, 8)` up to the session memory count. Candidate/index text and query text now include deterministic authoritative retrieval fields so the narrower vector path can influence which ids reach SQLite resolution without changing the authority model.
+
 Current v0.4 Goal
 
 Stand up the real retrieval backend in small deterministic slices: stable API contract first, metadata filtering first, no LLM generation yet, no Chroma yet, and no major frontend rewrite.
@@ -61,7 +69,7 @@ Read `docs/GAME_SYSTEMS.md` only when changing:
 
 ## Last Completed
 
-v0.4.0 slice 4 step 1: deterministic post-filter evidence ordering.
+v0.4.0 slice 4 candidate breadth pass: default vector cap plus deterministic retrieval text helpers.
 
 Verification on June 27, 2026:
 
@@ -76,21 +84,28 @@ Verification on June 27, 2026:
 - Backend query and reaction responses now include optional debug metadata for `retrievalSource`, candidate counts, and filtered counts
 - Backend query evidence ordering is now deterministic by day desc, reliability desc, title asc, source asc, memory id asc
 - Backend reaction accepted/rejected evidence lists now use the same deterministic ordering within each group
+- Backend/vector and backend/sqlite debug output is now phrased as candidate-mode diagnostics rather than mixed source/mode shorthand
+- Backend vector retrieval now caps default candidate breadth at `8` when no explicit query limit is provided
+- Explicit backend query limits still widen candidate breadth with `max(limit * 3, limit, 8)` up to the session total
+- Nonpositive explicit query limits now safely return empty evidence instead of relying on slice semantics
+- Backend vector candidate documents now encode day/source/location/visibility/reliability/evidence-role/active/tag text from authoritative records
+- Backend query/reaction text now encodes deterministic request and NPC context for narrowed vector retrieval
 - Frontend retrieval is routed through `lib/retrievalAdapter.ts`
 - Local deterministic fallback is preserved when the backend is not running
 - Local fallback evidence and Day 8 reaction lists now mirror the same deterministic ordering policy
 - Retrieved evidence now carries source/day/location/active/tag metadata into the UI
 - Evidence panel now shows developer-facing `Evidence Source` and `Reaction Source` badges
-- Browser console now logs retrieval sync lines with backend/local source plus `vector|sqlite` retrieval mode and counts when available
+- Browser console now logs retrieval sync lines with separate `evidenceSource` / `evidenceMode` and `reactionSource` / `reactionMode` fields
 - Day 8 NPC reactions can come from backend-returned structured JSON while staying aligned with the current deterministic rules
 - Inactive memories remain excluded from NPC reactions in both local and backend rule paths
 - A cheap persistence test now verifies memory metadata survives store reopen across backend restart
 - Focused retrieval tests now verify vector candidate ids still respect SQLite truth and deterministic filters
+- Focused retrieval tests now verify the default vector cap, explicit limit widening, and deterministic retrieval text helpers
 - If Chroma is unavailable, the backend falls back to SQLite-only deterministic retrieval without changing API shapes
 
 ## Next Task
 
-Run a manual end-to-end smoke test with the FastAPI server live, confirm the new deterministic ordering is visible in the Evidence panel and Day 8 NPC lists, and then decide whether the next v0.4 slice 4 step should focus on retrieval query tuning or additional debug polish.
+Run a manual Day 8 smoke test with enough memories to observe the default candidate cap in the backend/vector path, then decide whether the next retrieval slice should tune the cap value itself or refine query/document text further based on observed misses.
 
 ## Needs Testing
 
@@ -108,5 +123,7 @@ Run a manual end-to-end smoke test with the FastAPI server live, confirm the new
   - Chroma candidate retrieval never causes inactive or inaccessible evidence to leak past SQLite/rules filtering
   - `retrievalSource` reports `vector` when Chroma candidates are used and `sqlite` when vector fallback is active
   - final evidence order stays stable even when vector candidate ids arrive in a different order
+  - console output clearly separates response source from candidate mode during backend/manual smoke checks
+  - backend/vector runs with more than `8` memories now show a capped candidate count by default
 - Future drift risk to watch:
   - deterministic NPC rules now exist in both `lib/gameLogic.ts` and `backend/app/rules.py`

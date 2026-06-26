@@ -2,7 +2,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from backend.app.embeddings import embedding_provider
 from backend.app.retrieval import (
+    _vector_query_limit,
+    build_query_text,
+    build_reaction_query_text,
     candidate_resolution_debug,
     resolve_candidate_memories_for_query,
     resolve_candidate_memories_for_reaction,
@@ -10,6 +14,7 @@ from backend.app.retrieval import (
 from backend.app.rules import build_npc_reaction, query_memories
 from backend.app.schemas import QueryRequest, ReactionRequest
 from backend.app.store import SQLiteSessionStore
+from backend.app.vector_store import build_candidate_document
 from backend.tests.helpers import make_memory
 
 
@@ -24,6 +29,26 @@ class FakeVectorStore:
         return self.candidate_ids[:n_results]
 
 
+class RecordingVectorStore(FakeVectorStore):
+    def __init__(self, candidate_ids, available=True):
+        super().__init__(candidate_ids, available)
+        self.query_calls = []
+
+    def query_candidate_memory_ids(self, session_id: str, query_text: str, n_results: int):
+        self.query_calls.append(
+            {
+                "session_id": session_id,
+                "query_text": query_text,
+                "n_results": n_results,
+            }
+        )
+        return super().query_candidate_memory_ids(session_id, query_text, n_results)
+
+
+def dot_product(left, right):
+    return sum(left_value * right_value for left_value, right_value in zip(left, right))
+
+
 class RetrievalCandidateTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -32,6 +57,130 @@ class RetrievalCandidateTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def test_vector_query_limit_uses_default_cap_without_explicit_limit(self):
+        self.assertEqual(_vector_query_limit(0), 0)
+        self.assertEqual(_vector_query_limit(5), 5)
+        self.assertEqual(_vector_query_limit(12), 8)
+        self.assertEqual(_vector_query_limit(20, 3), 9)
+        self.assertEqual(_vector_query_limit(20, 10), 20)
+
+    def test_query_text_is_deterministic_and_uses_request_fields(self):
+        query_text = build_query_text(
+            QueryRequest(
+                sessionId=self.session_id,
+                npcId="bearJudge",
+                activeOnly=True,
+                visibility=["public"],
+                sourceTypes=["record", "contract"],
+                minReliability=0.7,
+                tags=["court", "ledger"],
+            )
+        )
+
+        self.assertEqual(
+            query_text,
+            "memory evidence retrieval npc Bear Judge bearCourt accepted record contract active true types record contract tags court ledger visibility public minimum 70",
+        )
+
+    def test_reaction_query_text_is_deterministic_and_uses_npc_context(self):
+        query_text = build_reaction_query_text(
+            ReactionRequest(
+                sessionId=self.session_id,
+                npcId="foxMerchant",
+                currentDay=8,
+                factions={
+                    "deerVillage": 0,
+                    "refugees": 0,
+                    "foxMarket": 0,
+                    "crowBrokers": 0,
+                    "bearCourt": 0,
+                },
+                resources={"silver": 0, "medicine": 0, "provisions": 0, "legalRisk": 0},
+            )
+        )
+
+        self.assertEqual(
+            query_text,
+            "reaction evidence day 8 npc Fox Merchant foxMarket accepted record contract rumor rejected song visibility public private minimum 55",
+        )
+
+    def test_candidate_document_is_deterministic_and_uses_authoritative_fields(self):
+        document = build_candidate_document(
+            make_memory(
+                "market-contract",
+                title="Market Contract",
+                memory_type="contract",
+                visibility="public",
+                reliability=0.83,
+                active=True,
+                day=6,
+                source="Fox Market Ledger",
+                location="Fox Market",
+            )
+        )
+
+        self.assertEqual(
+            document,
+            "Title: Market Contract\n"
+            "Body: Market Contract text\n"
+            "Day: 6\n"
+            "Type: contract\n"
+            "Source: Fox Market Ledger\n"
+            "Source NPC: none\n"
+            "Location: Fox Market\n"
+            "Faction: none\n"
+            "Visibility: public\n"
+            "Reliability: 83\n"
+            "Evidence Role: neutral\n"
+            "Active: true\n"
+            "Persistent: true\n"
+            "Tags: test, contract",
+        )
+
+    def test_query_text_can_match_useful_non_body_fields(self):
+        public_memory = make_memory(
+            "public-record",
+            title="Quiet Record",
+            memory_type="record",
+            visibility="public",
+            reliability=0.88,
+            active=True,
+            day=8,
+            source="Gate Archive",
+            location="Deer Village Gate",
+        )
+        private_memory = make_memory(
+            "private-record",
+            title="Quiet Record",
+            memory_type="record",
+            visibility="private",
+            reliability=0.88,
+            active=True,
+            day=8,
+            source="Gate Archive",
+            location="Deer Village Gate",
+        )
+        query_text = build_query_text(
+            QueryRequest(
+                sessionId=self.session_id,
+                activeOnly=True,
+                visibility=["public"],
+                sourceTypes=["record"],
+            )
+        )
+
+        query_embedding = embedding_provider.embed_query(query_text)
+        public_score = dot_product(
+            query_embedding,
+            embedding_provider.embed_texts([build_candidate_document(public_memory)])[0],
+        )
+        private_score = dot_product(
+            query_embedding,
+            embedding_provider.embed_texts([build_candidate_document(private_memory)])[0],
+        )
+
+        self.assertGreater(public_score, private_score)
 
     def test_query_candidates_still_respect_authoritative_filters(self):
         self.store.upsert_memories(
@@ -243,6 +392,93 @@ class RetrievalCandidateTests(unittest.TestCase):
         self.assertEqual([memory.memoryId for memory in memories], ["public-record"])
         self.assertEqual(debug.retrievalSource, "sqlite")
         self.assertEqual(debug.candidateCount, 0)
+
+    def test_default_query_candidate_breadth_is_narrower_than_full_session(self):
+        self.store.upsert_memories(
+            self.session_id,
+            [
+                make_memory(
+                    f"memory-{index}",
+                    title=f"Memory {index}",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.8,
+                    active=True,
+                    day=8,
+                    source=f"Source {index}",
+                    location="Test Crossing",
+                )
+                for index in range(12)
+            ],
+        )
+
+        request = QueryRequest(sessionId=self.session_id, activeOnly=True)
+        vector_store = RecordingVectorStore([f"memory-{index}" for index in range(12)])
+        resolution = resolve_candidate_memories_for_query(self.store, vector_store, request)
+
+        self.assertEqual(vector_store.query_calls[0]["n_results"], 8)
+        self.assertEqual(len(resolution.candidate_ids), 8)
+        self.assertEqual(len(resolution.memories), 8)
+
+    def test_explicit_request_limit_keeps_predictable_vector_breadth(self):
+        self.store.upsert_memories(
+            self.session_id,
+            [
+                make_memory(
+                    f"memory-{index}",
+                    title=f"Memory {index}",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.8,
+                    active=True,
+                    day=8,
+                    source=f"Source {index}",
+                    location="Test Crossing",
+                )
+                for index in range(15)
+            ],
+        )
+
+        request = QueryRequest(sessionId=self.session_id, activeOnly=True, limit=3)
+        vector_store = RecordingVectorStore([f"memory-{index}" for index in range(15)])
+        resolution = resolve_candidate_memories_for_query(self.store, vector_store, request)
+
+        self.assertEqual(vector_store.query_calls[0]["n_results"], 9)
+        self.assertEqual(len(resolution.candidate_ids), 9)
+
+    def test_nonpositive_query_limit_is_safely_empty(self):
+        self.store.upsert_memories(
+            self.session_id,
+            [
+                make_memory(
+                    "memory-a",
+                    title="Memory A",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.8,
+                    active=True,
+                    day=8,
+                ),
+                make_memory(
+                    "memory-b",
+                    title="Memory B",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.8,
+                    active=True,
+                    day=8,
+                ),
+            ],
+        )
+
+        request = QueryRequest(sessionId=self.session_id, activeOnly=True, limit=0)
+        vector_store = RecordingVectorStore(["memory-a", "memory-b"])
+        resolution = resolve_candidate_memories_for_query(self.store, vector_store, request)
+        result = query_memories(resolution.memories, request)
+
+        self.assertEqual(vector_store.query_calls[0]["n_results"], 0)
+        self.assertEqual(resolution.candidate_ids, [])
+        self.assertEqual(result, [])
 
     def test_query_result_order_does_not_follow_vector_candidate_order(self):
         self.store.upsert_memories(
