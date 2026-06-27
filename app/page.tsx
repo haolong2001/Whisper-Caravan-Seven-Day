@@ -27,9 +27,9 @@ import {
 import { ingestMemories, queryMemories } from "@/lib/retrievalAdapter";
 import { evaluateTrialResult } from "@/lib/trialLogic";
 
-const PLAYTEST_BUILD_LABEL = "Whisper Caravan v0.5 Playtest - Slice 4A";
+const PLAYTEST_BUILD_LABEL = "Whisper Caravan v0.5 Playtest - Slice 4C";
 const PLAYTEST_SAVE_KEY = "whisper-caravan-v0.5-playtest-save";
-const PLAYTEST_SAVE_VERSION = 1;
+const PLAYTEST_SAVE_VERSION = 2;
 
 type SavedRunState = {
   version: number;
@@ -53,6 +53,7 @@ function isGameState(value: unknown): value is GameState {
     typeof candidate.phase === "string" &&
     typeof candidate.currentDay === "number" &&
     (typeof candidate.currentSceneIndex === "number" || candidate.currentSceneIndex === null) &&
+    Array.isArray(candidate.scenePlan) &&
     Array.isArray(candidate.memories) &&
     Boolean(candidate.factions) &&
     Boolean(candidate.resources) &&
@@ -350,9 +351,9 @@ export default function Home() {
             Whisper Caravan: Seven-Day Memory
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 sm:text-base">
-            A browser playtest of the fixed fourteen-day spine. Friends can play from
-            Day 1 to Day 14, reach Bear Court, see one deterministic ending, and send
-            back feedback without a backend requirement.
+            A browser playtest of the route-dependent fourteen-day beta slice. Friends
+            can play from Day 1 to Day 14, reach Bear Court, see one deterministic
+            ending, and send back feedback without a backend requirement.
           </p>
         </div>
 
@@ -363,12 +364,12 @@ export default function Home() {
                 Playtest Run
               </p>
               <h2 className="font-display mt-3 text-3xl text-parchment">
-                {hasSavedRun ? "Continue the saved caravan route" : "Start the fixed-spine run"}
+                {hasSavedRun ? "Continue the saved caravan route" : "Start a route-dependent run"}
               </h2>
               <p className="mt-3 text-sm leading-7 text-stone-300">
                 {hasSavedRun
                   ? `Saved at ${savedAtLabel ?? "an earlier time"} on Day ${currentPhaseContent.day} during ${getPhaseLabel(gameState.phase)} at ${currentPhaseContent.location}.`
-                  : "One major event resolves each day. Two collapse checkpoints lead into the Bear Court trial and one of five deterministic endings."}
+                  : "One major event resolves each day. Four anchor cards stay fixed, the remaining days pull from the 26-card pool, and two collapse checkpoints lead into the Bear Court trial."}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -404,7 +405,7 @@ export default function Home() {
                 Playable Shape
               </p>
               <p className="mt-3 text-sm leading-6 text-stone-300">
-                Fixed 14-day story spine. No dynamic 26-card event pool in this build.
+                Route-dependent 14-day story path drawn from the 26-card pool. One major event still appears per day.
               </p>
             </article>
             <article className="rounded-3xl border border-white/10 bg-black/20 p-5">
@@ -441,9 +442,10 @@ export default function Home() {
               Whisper Caravan: Seven-Day Memory
             </h1>
             <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base">
-              This playtest build keeps the fixed fourteen-day starter spine, one major
-              event per day, two collapse checkpoints, and a deterministic Bear Court
-              verdict plus ending resolution. Backend retrieval is optional; the browser
+              This playtest build keeps one major event per day, two collapse
+              checkpoints, and a deterministic Bear Court verdict plus ending
+              resolution, but the middle of the run now pulls from a deterministic
+              route-dependent 26-card pool. Backend retrieval is optional; the browser
               can complete the full run through deterministic local fallback.
             </p>
           </div>

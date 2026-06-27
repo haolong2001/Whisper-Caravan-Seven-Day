@@ -20,9 +20,9 @@ v0.4.0 is complete in code:
 
 FastAPI ingest/query/reaction routes exist, SQLite is the authoritative memory store, Chroma returns candidate ids only, deterministic rule filtering remains authoritative, and frontend retrieval falls back locally when the backend is unavailable.
 
-v0.5 slice 4A is now in place:
+v0.5 slice 4C is now in place:
 
-The playable web build keeps the fixed fourteen-day starter spine from `docs/story-spec.md`, two deterministic collapse checkpoints, deterministic Bear Court trial scoring, and all five endings. The browser now supports a playtest title screen, Start/Continue/Restart flow, local save persistence, player-facing ending presentation, and frontend-only deployment without requiring the backend at runtime.
+The playable web build now uses the full 26-card pool from `docs/story-spec.md` to assemble deterministic route-dependent fourteen-day runs while preserving one major event per day, two collapse checkpoints, deterministic Bear Court trial scoring, and all five endings. The browser still supports a playtest title screen, Start/Continue/Restart flow, local save persistence, player-facing ending presentation, and frontend-only deployment without requiring the backend at runtime.
 
 ## Current v0.5 Goal
 
@@ -32,7 +32,8 @@ Turn the prototype into a playable beta in small deterministic slices:
 - slice 2: fixed fourteen-day starter spine content pass
 - slice 3: deterministic Bear Court trial scoring and ending resolution
 - slice 4A: web playtest build and fixed-spine playtest hardening
-- slice 4B+: post-playtest polish, then route-dependent 26-card pool expansion
+- slice 4C: route-dependent 26-card pool and broader beta content expansion
+- slice 5: post-pool playtest polish and beta tuning
 
 ## System Reference
 
@@ -55,7 +56,7 @@ Read `docs/GAME_SYSTEMS.md` when changing:
 
 ## Last Completed
 
-v0.5 slice 4A: web playtest build and fixed-spine playtest hardening.
+v0.5 slice 4C: route-dependent 26-card pool and broader beta content expansion.
 
 Verification on June 27, 2026:
 
@@ -64,10 +65,10 @@ Verification on June 27, 2026:
 - `PYTHONPYCACHEPREFIX=/private/tmp/whisper-caravan-pycache .venv/bin/python -m compileall backend/app backend/tests` passes
 - `npm run build` passes
 
-Current repo behavior after slice 4A:
+Current repo behavior after slice 4C:
 
-- the playable path remains the fixed fourteen-card starter spine from `docs/story-spec.md`
-- the 26-card dynamic route-dependent pool is still not implemented
+- the game now keeps a 26-card authored pool in `lib/mockData.ts`
+- each run deterministically selects a route-dependent subset of fourteen cards
 - one major event appears per player-facing day across Days 1 through 14
 - Day 15 remains the Bear Court resolution phase, not a normal event card
 - the phased run model from slices 1 to 3 remains intact:
@@ -91,9 +92,19 @@ Current repo behavior after slice 4A:
   - B Merchant Settlement
   - C Folk Hero / Rumor Victory
   - D Guilty Exile
-- full fixed-spine frontend simulations now prove real fourteen-day paths can reach A1, A2, B, C, and D
+- structural anchor cards always appear:
+  - Day 1: Deer Village Medicine Conflict
+  - Day 7: First Memory Collapse Night
+  - Day 13: Court Packet Sorting
+  - Day 14: Eve of Bear Court
+- route pressure now biases which cards fill Days 2 through 6 and Days 8 through 12:
+  - truth pressure favors court evidence, necessity, and system-exposure cards
+  - merchant pressure favors ledger cleanup, settlement, audit, and debt cards
+  - rumor pressure favors songs, broadsides, and public-memory cards
+  - failure pressure favors contradiction, suspicion, and pressure cards
+- frontend simulations now prove route-dependent fourteen-day paths still reach the trial and can feed all five endings through deterministic fixtures
 - the browser UI now includes:
-  - visible build label: `Whisper Caravan v0.5 Playtest - Slice 4A`
+  - visible build label: `Whisper Caravan v0.5 Playtest - Slice 4C`
   - title screen with Start, Continue, Restart, and Clear Save flow
   - local save persistence in browser `localStorage`
   - deterministic restore of the current run after refresh
@@ -132,24 +143,16 @@ Optional backend-assisted local run:
 
 ## Known Playtest Limits
 
-- the content pool is still fixed to the current fourteen authored scenes
-- the 26-card dynamic route-dependent pool is still deferred
+- route-dependent selection is deterministic but still heuristic rather than fully authored per-branch
 - browser persistence is local-only and single-device
 - no accounts, cloud saves, analytics, multiplayer, or feedback backend exist
 - backend ingest/query can still be used locally, but the shipped playtest does not require it
 
 ## Next Task
 
-Recommended next slice after external playtesting:
+Recommended next slice:
 
-- v0.5 slice 4B: absorb playtester feedback, fix UI friction and route clarity issues, and tune any obvious evidence/trial readability problems without changing backend authority
-
-After 4B, resume the larger v0.5 slice 4 expansion:
-
-- grow from the fixed fourteen-day spine toward the route-dependent 26-card pool in `docs/story-spec.md`
-- preserve the current trial thresholds and ending priority unless broader content proves recalibration is necessary
-- keep the four canonical locations and six-NPC cast baseline
-- avoid generation and avoid backend-authority drift
+- v0.5 slice 5: absorb route-pool playtest feedback, tune route clarity and card weighting, and tighten trial readability without changing backend authority
 
 ## Needs Testing
 
@@ -173,5 +176,5 @@ After 4B, resume the larger v0.5 slice 4 expansion:
 ## Drift Risks
 
 - deterministic NPC rules still exist in both `lib/gameLogic.ts` and `backend/app/rules.py`
-- the current path is intentionally fixed; larger route-dependent event selection is still absent
-- trial score weights are tuned for the current fixed fourteen-day spine and may need recalibration once the larger card pool exists
+- route selection currently relies on deterministic scoring over tags, factions, and legal risk rather than explicit authored branch tables
+- trial score weights are preserved, but the broader pool may still need calibration after real playtest feedback

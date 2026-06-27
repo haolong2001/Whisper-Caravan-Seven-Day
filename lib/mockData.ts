@@ -137,10 +137,10 @@ function withStorySource(
 }
 
 export const initialSceneStatus =
-  "Day 1 begins the fixed fourteen-card starter spine. Each day presents one major event card that can create evidence, shift factions, and change what survives the next collapse boundary.";
+  "Day 1 begins a route-dependent fourteen-day run. Each day presents one major event card that can create evidence, shift factions, and change what survives the next collapse boundary.";
 
 export const initialNpcResponse =
-  "No retrieval query has fired yet. The v0.5 starter spine now follows one major event per day across two loops before Bear Court evaluates the surviving evidence.";
+  "No retrieval query has fired yet. The v0.5 route-dependent pool still resolves as one major event per day across two loops before Bear Court evaluates the surviving evidence.";
 
 export const initialFactions: FactionState = {
   deerVillage: 0,
@@ -158,10 +158,13 @@ export const initialResources: GameResources = {
 };
 
 export function createInitialGameState(): GameState {
+  const openingScene = buildSceneForDay(gameScenes[0], 1);
+
   return {
     phase: "loop_one",
     currentDay: 1,
     currentSceneIndex: 0,
+    scenePlan: [openingScene],
     memories: [],
     factions: { ...initialFactions },
     resources: { ...initialResources },
@@ -169,8 +172,6 @@ export function createInitialGameState(): GameState {
     sceneStatus: initialSceneStatus,
   };
 }
-
-export const initialGameState: GameState = createInitialGameState();
 
 export const collapseCheckpoints: CollapseCheckpoint[] = [
   {
@@ -2173,3 +2174,1475 @@ export const gameScenes: StoryScene[] = [
     ],
   },
 ];
+
+function withSelectionMeta(
+  scene: StoryScene,
+  {
+    dayOptions,
+    selectionBucket,
+    isAnchor = false,
+  }: {
+    dayOptions: number[];
+    selectionBucket: StoryScene["selectionBucket"];
+    isAnchor?: boolean;
+  }
+): StoryScene {
+  return {
+    ...scene,
+    dayOptions,
+    selectionBucket,
+    isAnchor,
+  };
+}
+
+export function buildSceneForDay(template: StoryScene, day: number): StoryScene {
+  return {
+    ...template,
+    day,
+    phase: day <= 7 ? "loop_one" : "loop_two",
+  };
+}
+
+const borderTollInspection: StoryScene = {
+  id: "border-toll-inspection",
+  phase: "loop_one",
+  day: 4,
+  location: "Bear Court",
+  title: "Border Toll Inspection",
+  description:
+    "Bear officers stop the caravan at a toll checkpoint to inspect cargo, papers, passengers, and any hidden medicine.",
+  involvedNpcIds: ["royalTaxOfficer", "bearJudgeAuthority", "campHealer"],
+  routeTags: ["truth", "merchant", "failure"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Submit to inspection",
+      description: "Let the officers log what they see and move carefully through the checkpoint.",
+      outcomeText:
+        "The official log helps later if your route stays coherent, though every public stamp also makes your trail easier to trace.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Border Clearance Log",
+            "A Bear toll clerk records that the blue caravan passed inspection with declared cargo and passengers.",
+            "Bear Court toll archive",
+            0.81,
+            "favorable"
+          ),
+          {
+            source: "Border Toll Ledger",
+            sourceNpcId: "bearJudgeAuthority",
+            faction: "bearCourt",
+            tags: ["route-pool", "truth-route", "timeline-evidence", "day-band-4-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "bearCourt", delta: 1 }],
+    }),
+    choice({
+      id: "B",
+      label: "Bribe the officer",
+      description: "Buy passage and trust that no one audits the stamp too closely later.",
+      outcomeText:
+        "The caravan passes, but the checkpoint mark now looks wrong in the sort of way clerks remember when cases turn ugly.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Suspicious Toll Stamp",
+            "A toll record carries a stamp time that does not match the checkpoint clerk rotation.",
+            "Bear Court toll archive",
+            0.77,
+            "incriminating"
+          ),
+          {
+            source: "Toll Gate Inspection Sheet",
+            sourceNpcId: "bearJudgeAuthority",
+            faction: "bearCourt",
+            tags: ["route-pool", "contradiction", "day-band-4-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "bearCourt", delta: -1 }],
+      resourceEffects: { silver: -2, legalRisk: 1 },
+    }),
+    choice({
+      id: "C",
+      label: "Hide refugees in carts",
+      description: "Protect frightened passengers by trusting fabric, shadows, and silence.",
+      outcomeText:
+        "The hiding works poorly. Even when the caravan escapes the stop, someone remembers the coughing.",
+      memoryEffects: [
+        withStorySource(
+          shortTermMemory(
+            "Porter Heard Coughing",
+            "A porter privately remembers hearing coughing inside covered carts during the checkpoint stop.",
+            "Bear Court toll road",
+            0.74,
+            "incriminating"
+          ),
+          {
+            source: "Checkpoint Porter",
+            faction: "bearCourt",
+            tags: ["route-pool", "act-evidence", "witness", "day-band-4-6"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "refugees", delta: 1 },
+        { faction: "bearCourt", delta: -1 },
+      ],
+      resourceEffects: { legalRisk: 1 },
+    }),
+    choice({
+      id: "D",
+      label: "Accuse a rival caravan",
+      description: "Deflect attention by pointing Bear officers toward another route entirely.",
+      outcomeText:
+        "The tip buys time, but it leaves behind a strange side entry that can cut either way later.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Checkpoint Tip Entry",
+            "A checkpoint margin note records that the blue caravan redirected officer suspicion toward a rival route.",
+            "Bear Court toll archive",
+            0.69,
+            "neutral"
+          ),
+          {
+            source: "Toll Margin Entry",
+            sourceNpcId: "bearJudgeAuthority",
+            faction: "bearCourt",
+            tags: ["route-pool", "timeline-evidence", "day-band-4-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "bearCourt", delta: -1 }],
+    }),
+  ],
+};
+
+const rabbitWitnessAtMistwood: StoryScene = {
+  id: "rabbit-witness-at-mistwood",
+  phase: "loop_one",
+  day: 5,
+  location: "River Refugee Camp",
+  title: "Rabbit Witness at Mistwood",
+  description:
+    "A frightened Rabbit witness saw royal tax wagons moving medicine by night and may not survive public attention without protection.",
+  involvedNpcIds: ["campHealer", "royalTaxOfficer", "crowBrokerNarrator"],
+  routeTags: ["truth", "rumor"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Record formal testimony",
+      description: "Turn the witness memory into something Bear Court can eventually read.",
+      outcomeText:
+        "The statement is narrow but durable. It fixes the night wagons into the legal record before fear can erase them.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Rabbit Testimony",
+            "A sworn witness statement places royal tax wagons near medicine routes after curfew.",
+            "Bear Court witness file",
+            0.84,
+            "favorable"
+          ),
+          {
+            source: "Mistwood Witness Filing",
+            faction: "bearCourt",
+            tags: ["route-pool", "truth-route", "system-evidence", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "bearCourt", delta: 1 }],
+    }),
+    choice({
+      id: "B",
+      label: "Escort the witness safely",
+      description: "Protect the witness first and leave a lighter paper trail for now.",
+      outcomeText:
+        "The witness survives the road with a cleaner conscience attached to the caravan, even if the proof stays thinner.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Protected Witness Note",
+            "A camp note records that the caravan protected a frightened witness tied to night tax wagons.",
+            "River Refugee Camp ledger",
+            0.79,
+            "favorable"
+          ),
+          {
+            source: "Camp Escort Record",
+            sourceNpcId: "campHealer",
+            faction: "refugees",
+            tags: ["route-pool", "truth-route", "necessity", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "refugees", delta: 1 }],
+    }),
+    choice({
+      id: "C",
+      label: "Turn the story into a rumor",
+      description: "Spread the night wagons fast before the court can suppress them.",
+      outcomeText:
+        "The story runs ahead of its proof. It may help later if the caravan can support it with records.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Night Tax Wagon Rumor",
+            "Road rumor claims royal tax wagons moved medicine through the dark while Deer Village blamed the caravan.",
+            "Fox Market rumor circuit",
+            0.64,
+            "favorable"
+          ),
+          {
+            source: "Crow Relay Whisper Net",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "rumor-route", "system-evidence", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "crowBrokers", delta: 1 }],
+    }),
+    choice({
+      id: "D",
+      label: "Leave the witness unprotected",
+      description: "Avoid the risk and let the fragile memory fend for itself.",
+      outcomeText:
+        "Nothing stable is written down. The caravan leaves behind a witness trace that may fade before anyone formalizes it.",
+      memoryEffects: [
+        withStorySource(
+          shortTermMemory(
+            "Unrecorded Witness Memory",
+            "A private witness trace recalls night tax wagons, but no public statement protects it.",
+            "Mistwood roadside",
+            0.68,
+            "favorable"
+          ),
+          {
+            source: "Mistwood Rabbit Witness",
+            tags: ["route-pool", "short-term", "witness", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "refugees", delta: -1 }],
+    }),
+  ],
+};
+
+const blackMarketPriceList: StoryScene = {
+  id: "black-market-price-list",
+  phase: "loop_one",
+  day: 5,
+  location: "Fox Market",
+  title: "Black Market Price List",
+  description:
+    "A hidden Fox Market sheet shows medicine prices rising before the theft accusation, implying planned scarcity instead of sudden panic.",
+  involvedNpcIds: ["foxLedgerMaster", "royalTaxOfficer", "crowBrokerNarrator"],
+  routeTags: ["truth", "merchant"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Copy the price list",
+      description: "Take a durable copy that can help expose medicine control later.",
+      outcomeText:
+        "The copy is dry, legible, and dangerous to anyone profiting from scarcity.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Medicine Price List",
+            "A copied price sheet shows Fox Market medicine values rising before Deer Village posted the wanted notice.",
+            "Fox Market account room",
+            0.83,
+            "favorable"
+          ),
+          {
+            source: "Fox Account Copy",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "truth-route", "system-evidence", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: -1 }],
+    }),
+    choice({
+      id: "B",
+      label: "Buy the list from a clerk",
+      description: "Pay for the evidence and keep the transfer quiet.",
+      outcomeText:
+        "The caravan keeps the proof, but now someone knows exactly what it cost to obtain.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Fox Supply Markup",
+            "A clerk-marked copy highlights price surges tied to constrained medicine supply.",
+            "Fox Market account room",
+            0.8,
+            "favorable"
+          ),
+          {
+            source: "Paid Clerk Copy",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "truth-route", "system-evidence", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: 1 }],
+      resourceEffects: { silver: -2 },
+    }),
+    choice({
+      id: "C",
+      label: "Trade it back to Fox Market",
+      description: "Use the list as bargaining leverage instead of public exposure.",
+      outcomeText:
+        "The market remembers that the caravan can be reasoned with when ledgers start to bite.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Buyer List Fragment",
+            "A partial buyer fragment survives from the price sheet trade, useful for leverage but thin as proof.",
+            "Fox Market side office",
+            0.71,
+            "neutral"
+          ),
+          {
+            source: "Fox Market Quiet Trade",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "merchant-route", "timeline-evidence", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: 1 }],
+    }),
+    choice({
+      id: "D",
+      label: "Destroy it for favor",
+      description: "Burn the sheet and trust Fox Market to remember the gesture kindly.",
+      outcomeText:
+        "The destruction buys temporary favor, but a dangerous rumor survives the smoke.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Destroyed Price Sheet Rumor",
+            "Fox Market rumor claims the blue caravan destroyed price evidence instead of exposing it.",
+            "Fox Market whisper lane",
+            0.59,
+            "incriminating"
+          ),
+          {
+            source: "Market Whisper Circuit",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "contradiction", "rumor-route", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: 2 }],
+    }),
+  ],
+};
+
+const refugeeWitnessCircle: StoryScene = {
+  id: "refugee-witness-circle",
+  phase: "loop_one",
+  day: 5,
+  location: "River Refugee Camp",
+  title: "Refugee Witness Circle",
+  description:
+    "Saved refugees gather to decide whether the caravan should receive legal testimony, public memory, anonymity, or a sharpened myth.",
+  involvedNpcIds: ["campHealer", "crowBrokerNarrator", "bearJudgeAuthority"],
+  routeTags: ["truth", "rumor"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Take formal group testimony",
+      description: "Turn gratitude into durable testimony Bear Court can count.",
+      outcomeText:
+        "The witness circle becomes orderly testimony rather than only grief and song.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Group Refugee Testimony",
+            "A group witness filing records that refugees received or urgently needed medicine while officials delayed.",
+            "River Refugee Camp records table",
+            0.85,
+            "favorable"
+          ),
+          {
+            source: "Refugee Witness Circle Record",
+            sourceNpcId: "campHealer",
+            faction: "refugees",
+            tags: ["route-pool", "truth-route", "necessity", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "refugees", delta: 1 }],
+    }),
+    choice({
+      id: "B",
+      label: "Let the refugees create a song",
+      description: "Trust public memory more than clerks.",
+      outcomeText:
+        "The camp sings the caravan into the road’s memory, even if the court will hear it as something softer than proof.",
+      memoryEffects: [
+        withStorySource(
+          publicSong(
+            "Healing Road Song",
+            "A refugee chorus spreads a song of fevered shelters, delayed officials, and a blue caravan that acted first.",
+            "River Refugee Camp nightfire",
+            0.77,
+            "favorable"
+          ),
+          {
+            source: "Refugee Witness Circle Chorus",
+            sourceNpcId: "campHealer",
+            faction: "refugees",
+            tags: ["route-pool", "public-sympathy", "rumor-route", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "refugees", delta: 2 }],
+    }),
+    choice({
+      id: "C",
+      label: "Keep their names anonymous",
+      description: "Protect vulnerable refugees even if the court record gets weaker.",
+      outcomeText:
+        "The gratitude survives as social memory, but the names behind it remain blurred.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Anonymous Thanks",
+            "Anonymous camp testimony spreads that the caravan brought medicine when the villages stalled.",
+            "River Refugee Camp shelter lane",
+            0.63,
+            "favorable"
+          ),
+          {
+            source: "Anonymous Camp Circle",
+            sourceNpcId: "campHealer",
+            faction: "refugees",
+            tags: ["route-pool", "public-sympathy", "rumor-route", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "refugees", delta: 1 }],
+    }),
+    choice({
+      id: "D",
+      label: "Ask them to exaggerate the story",
+      description: "Push for a more heroic version and hope the court never sees the seams.",
+      outcomeText:
+        "The myth grows louder, but its edges begin to look staged.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Exaggerated Rescue Story",
+            "A swollen public tale claims the caravan broke a siege of fever camps in a single night.",
+            "Fox Market rumor circuit",
+            0.61,
+            "incriminating"
+          ),
+          {
+            source: "Crow Market Story Swap",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "contradiction", "rumor-route", "day-band-5-6"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "crowBrokers", delta: 1 },
+        { faction: "bearCourt", delta: -1 },
+      ],
+    }),
+  ],
+};
+
+const smugglerDebtCall: StoryScene = {
+  id: "smuggler-debt-call",
+  phase: "loop_one",
+  day: 6,
+  location: "Fox Market",
+  title: "Smuggler Debt Call",
+  description:
+    "A Fox debt collector insists the caravan owes the market for medicine moved through unofficial channels.",
+  involvedNpcIds: ["foxLedgerMaster", "royalTaxOfficer", "crowBrokerNarrator"],
+  routeTags: ["merchant", "failure"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Accept the debt and negotiate settlement",
+      description: "Treat the claim as leverage and try to turn it into survivable paperwork.",
+      outcomeText:
+        "The debt stays dangerous, but it also becomes something Fox Market can later close on paper.",
+      memoryEffects: [
+        withStorySource(
+          publicContract(
+            "Debt Negotiation Record",
+            "A Fox Market negotiation note records that the caravan entered debt talks rather than denying the claim outright.",
+            "Fox Market side ledger",
+            0.76,
+            "neutral"
+          ),
+          {
+            source: "Fox Debt Table",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "merchant-route", "day-band-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: 1 }],
+    }),
+    choice({
+      id: "B",
+      label: "Challenge the debt publicly",
+      description: "Force the collector to defend the claim under public eyes.",
+      outcomeText:
+        "The claim looks shakier, but Fox Market marks the caravan as less cooperative from this point on.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Collector Threat Rumor",
+            "A market rumor spreads that Fox debt collectors threatened the caravan over medicine routes.",
+            "Fox Market outer stalls",
+            0.64,
+            "neutral"
+          ),
+          {
+            source: "Market Witness Chain",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "merchant-route", "rumor-route", "day-band-6"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "foxMarket", delta: -1 },
+        { faction: "crowBrokers", delta: 1 },
+      ],
+    }),
+    choice({
+      id: "C",
+      label: "Pay the collector quietly",
+      description: "Spend silver to reduce noise and keep the debt from growing teeth.",
+      outcomeText:
+        "The collector takes the payment, but the route still carries the mark of having needed a payoff.",
+      memoryEffects: [
+        withStorySource(
+          publicContract(
+            "Black Market Debt Note",
+            "A private-market note marks that the caravan paid against a medicine-related debt claim.",
+            "Fox Market side ledger",
+            0.74,
+            "incriminating"
+          ),
+          {
+            source: "Debt Collector Receipt",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "merchant-route", "legal-risk", "day-band-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: 1 }],
+      resourceEffects: { silver: -2, legalRisk: 1 },
+    }),
+    choice({
+      id: "D",
+      label: "Run from the collector",
+      description: "Refuse the claim entirely and accept the mark it leaves.",
+      outcomeText:
+        "The caravan keeps its coins, but the debt becomes a harder record instead of a negotiable one.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Unpaid Debt Mark",
+            "A Fox route note marks the caravan as having fled a medicine debt claim.",
+            "Fox Market route board",
+            0.79,
+            "incriminating"
+          ),
+          {
+            source: "Fox Route Debt Board",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "failure-route", "day-band-6"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: -2 }],
+      resourceEffects: { legalRisk: 1 },
+    }),
+  ],
+};
+
+const crowStoryBackfires: StoryScene = {
+  id: "crow-story-backfires",
+  phase: "loop_two",
+  day: 9,
+  location: "Fox Market",
+  title: "Crow Story Backfires",
+  description:
+    "A heroic Crow story mutates into a harsher claim that the caravan stole medicine for fame rather than necessity.",
+  involvedNpcIds: ["crowBrokerNarrator", "foxLedgerMaster", "campHealer"],
+  routeTags: ["rumor", "failure"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Correct the story through Crow channels",
+      description: "Spend influence to pull the public version back toward something consistent.",
+      outcomeText:
+        "The correction is imperfect, but it keeps the road from hardening around the ugliest version.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Corrected Crow Broadside",
+            "A revised broadside re-centers the caravan’s story on fever, delay, and public need rather than vanity.",
+            "Fox Market broadside wall",
+            0.7,
+            "favorable"
+          ),
+          {
+            source: "Crow Correction Sheet",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "public-sympathy", "rumor-route", "day-band-9-11"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "crowBrokers", delta: 1 }],
+    }),
+    choice({
+      id: "B",
+      label: "Double down on the heroic myth",
+      description: "Trust that bigger stories drown smaller doubts.",
+      outcomeText:
+        "The myth grows, but so does the gap between what the court can prove and what the road wants to believe.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Distorted Hero Rumor",
+            "A hero story spreads that the caravan staged danger so the rescue would travel farther.",
+            "Fox Market broadside wall",
+            0.67,
+            "incriminating"
+          ),
+          {
+            source: "Crow Market Broadside",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "contradiction", "rumor-route", "day-band-9-11"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "crowBrokers", delta: 1 }],
+    }),
+    choice({
+      id: "C",
+      label: "Blame Fox Market",
+      description: "Push public attention toward the merchants who profited from scarcity.",
+      outcomeText:
+        "The whisper helps only if later records can keep up with it.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Market Blame Whisper",
+            "A Crow whisper claims Fox Market turned fever into a price ladder before the caravan was blamed.",
+            "Fox Market rumor circuit",
+            0.63,
+            "neutral"
+          ),
+          {
+            source: "Crow Counterstory",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "system-evidence", "rumor-route", "day-band-9-11"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "crowBrokers", delta: 1 },
+        { faction: "foxMarket", delta: -1 },
+      ],
+    }),
+    choice({
+      id: "D",
+      label: "Silence the couriers",
+      description: "Trade reach for control and accept the stain that leaves behind.",
+      outcomeText:
+        "The rumor slows, but the method becomes part of the story too.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Silenced Courier Story",
+            "A public story claims the caravan leaned on couriers to suppress an inconvenient version of events.",
+            "Fox Market rumor lane",
+            0.66,
+            "incriminating"
+          ),
+          {
+            source: "Courier Complaint Chain",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "contradiction", "rumor-route", "day-band-9-11"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "crowBrokers", delta: -2 },
+        { faction: "bearCourt", delta: -1 },
+      ],
+    }),
+  ],
+};
+
+const deerArchivistsIndex: StoryScene = {
+  id: "deer-archivists-index",
+  phase: "loop_two",
+  day: 10,
+  location: "Deer Village",
+  title: "Deer Archivist’s Index",
+  description:
+    "A Deer archivist can compare old medicine ledgers with current tax orders and make the missing pattern official.",
+  involvedNpcIds: ["villageApothecary", "royalTaxOfficer", "bearJudgeAuthority"],
+  routeTags: ["truth", "failure"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Request an official copy",
+      description: "Ask for a clean record that links archive entries to the shortage.",
+      outcomeText:
+        "The official copy is dry and hard to dispute. It turns suspicion into something legible to court clerks.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Archive Index Match",
+            "An archive comparison shows that missing medicine entries line up with later tax hold references.",
+            "Deer Village archive desk",
+            0.86,
+            "favorable"
+          ),
+          {
+            source: "Deer Archive Copy",
+            sourceNpcId: "villageApothecary",
+            faction: "deerVillage",
+            tags: ["route-pool", "truth-route", "system-evidence", "day-band-10-11"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "deerVillage", delta: 1 }],
+    }),
+    choice({
+      id: "B",
+      label: "Ask the archivist to testify",
+      description: "Push the archive from paper into a living witness line.",
+      outcomeText:
+        "The archivist resists politics, but the testimony note still strengthens the chain around missing medicine.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Missing Medicine Entry",
+            "An archivist note identifies a missing medicine entry later mirrored in tax paperwork.",
+            "Deer Village archive desk",
+            0.82,
+            "favorable"
+          ),
+          {
+            source: "Archivist Testimony Note",
+            sourceNpcId: "villageApothecary",
+            faction: "deerVillage",
+            tags: ["route-pool", "truth-route", "system-evidence", "day-band-10-11"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "deerVillage", delta: 1 }],
+    }),
+    choice({
+      id: "C",
+      label: "Steal the index page",
+      description: "Take the proof fast and trust that the theft will not overshadow the contents.",
+      outcomeText:
+        "The page leaves the archive, but the method gives Deer Village one more reason to distrust the caravan.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Stolen Archive Page",
+            "A Deer archive notice records that a key medicine index page disappeared after the caravan’s visit.",
+            "Deer Village archive door",
+            0.78,
+            "incriminating"
+          ),
+          {
+            source: "Archive Loss Notice",
+            sourceNpcId: "villageApothecary",
+            faction: "deerVillage",
+            tags: ["route-pool", "contradiction", "day-band-10-11"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "deerVillage", delta: -2 }],
+      resourceEffects: { legalRisk: 1 },
+    }),
+    choice({
+      id: "D",
+      label: "Leave the archive alone",
+      description: "Avoid risk and settle for a smaller pattern instead of a full copy.",
+      outcomeText:
+        "The caravan leaves with a thinner pattern note rather than a dramatic theft or testimony.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Tax Hold Pattern",
+            "A brief archive summary notes that several tax holds cluster around the same medicine routes.",
+            "Deer Village archive desk",
+            0.78,
+            "favorable"
+          ),
+          {
+            source: "Archivist Pattern Summary",
+            sourceNpcId: "villageApothecary",
+            faction: "deerVillage",
+            tags: ["route-pool", "truth-route", "system-evidence", "day-band-10-11"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "deerVillage", delta: 0 }],
+    }),
+  ],
+};
+
+const marketSettlementDinner: StoryScene = {
+  id: "market-settlement-dinner",
+  phase: "loop_two",
+  day: 10,
+  location: "Fox Market",
+  title: "Market Settlement Dinner",
+  description:
+    "Fox Market offers a private settlement that could clean the caravan’s name while leaving the medicine monopoly intact.",
+  involvedNpcIds: ["foxLedgerMaster", "royalTaxOfficer", "bearJudgeAuthority"],
+  routeTags: ["merchant", "truth", "failure"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Sign the settlement",
+      description: "Take the market’s protection and accept the deeper price later.",
+      outcomeText:
+        "The paperwork is clean enough to matter. Fox Market now expects the caravan to stop digging.",
+      memoryEffects: [
+        withStorySource(
+          publicContract(
+            "Market Settlement Contract",
+            "A sealed Fox Market contract recognizes a procedural settlement around the medicine accusation.",
+            "Fox Market private dining ledger",
+            0.86,
+            "favorable"
+          ),
+          {
+            source: "Fox Settlement Table",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "merchant-route", "day-band-10-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: 2 }],
+    }),
+    choice({
+      id: "B",
+      label: "Negotiate better terms",
+      description: "Push for protections without fully exposing the market.",
+      outcomeText:
+        "The terms remain cautious, but the caravan gets language it may later use as leverage.",
+      memoryEffects: [
+        withStorySource(
+          publicContract(
+            "Sealed Liability Clause",
+            "A sealed clause limits caravan liability without naming the larger medicine structure directly.",
+            "Fox Market private dining ledger",
+            0.79,
+            "neutral"
+          ),
+          {
+            source: "Fox Settlement Clause",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "merchant-route", "day-band-10-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: 1 }],
+    }),
+    choice({
+      id: "C",
+      label: "Secretly copy the price-control clause",
+      description: "Accept the dinner but leave with evidence the court could later turn on the market.",
+      outcomeText:
+        "The clause is the sort of clean paper Bear Court respects if the caravan can survive long enough to show it.",
+      memoryEffects: [
+        withStorySource(
+          publicContract(
+            "Price Control Clause",
+            "A copied settlement clause shows Fox Market discussing medicine price control during the shortage window.",
+            "Fox Market private dining ledger",
+            0.82,
+            "favorable"
+          ),
+          {
+            source: "Copied Settlement Clause",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "truth-route", "system-evidence", "day-band-10-12"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "foxMarket", delta: -1 },
+        { faction: "bearCourt", delta: 1 },
+      ],
+    }),
+    choice({
+      id: "D",
+      label: "Reject the dinner",
+      description: "Refuse the settlement and leave the market to tell its own story about the refusal.",
+      outcomeText:
+        "The market loses patience and the road learns that the caravan walked away from a quiet exit.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Rejected Settlement Rumor",
+            "Fox Market rumor says the caravan rejected a clean settlement and chose risk instead.",
+            "Fox Market dinner circuit",
+            0.62,
+            "neutral"
+          ),
+          {
+            source: "Dinner Service Whisper",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "merchant-route", "rumor-route", "day-band-10-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: -2 }],
+    }),
+  ],
+};
+
+const refugeeSongFestival: StoryScene = {
+  id: "refugee-song-festival",
+  phase: "loop_two",
+  day: 10,
+  location: "River Refugee Camp",
+  title: "Refugee Song Festival",
+  description:
+    "Refugees prepare a public festival that could fix the caravan as savior in road memory while irritating every official watching.",
+  involvedNpcIds: ["campHealer", "crowBrokerNarrator", "bearJudgeAuthority"],
+  routeTags: ["rumor", "truth"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Encourage the festival",
+      description: "Let gratitude become a public chorus that travels farther than any single clerk.",
+      outcomeText:
+        "The song becomes impossible to ignore. Bear Court may not trust it as law, but the road will remember.",
+      memoryEffects: [
+        withStorySource(
+          publicSong(
+            "Festival Witness Chorus",
+            "A public festival chorus names the blue caravan as the one that answered fever when official routes did not.",
+            "River Refugee Camp square",
+            0.79,
+            "favorable"
+          ),
+          {
+            source: "Festival Chorus Sheet",
+            sourceNpcId: "campHealer",
+            faction: "refugees",
+            tags: ["route-pool", "public-sympathy", "rumor-route", "day-band-10-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "refugees", delta: 2 }],
+    }),
+    choice({
+      id: "B",
+      label: "Make the song legally precise",
+      description: "Trade a little warmth for a version less likely to collapse under scrutiny.",
+      outcomeText:
+        "The ballad loses some mythic power, but it gains enough precision to help rather than merely glow.",
+      memoryEffects: [
+        withStorySource(
+          publicSong(
+            "Precise Healing Ballad",
+            "A carefully edited refugee song names dates, camp conditions, and missing medicine with unusual precision.",
+            "River Refugee Camp square",
+            0.8,
+            "favorable"
+          ),
+          {
+            source: "Edited Festival Ballad",
+            sourceNpcId: "campHealer",
+            faction: "refugees",
+            tags: ["route-pool", "public-sympathy", "truth-route", "day-band-10-12"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "refugees", delta: 1 },
+        { faction: "bearCourt", delta: 1 },
+      ],
+    }),
+    choice({
+      id: "C",
+      label: "Keep names anonymous",
+      description: "Protect vulnerable singers while keeping the festival alive.",
+      outcomeText:
+        "The song still travels, though the court will hear the missing names as caution rather than strength.",
+      memoryEffects: [
+        withStorySource(
+          publicSong(
+            "Anonymous Shelter Song",
+            "A shelter song praises the caravan without naming the most vulnerable witnesses behind it.",
+            "River Refugee Camp square",
+            0.7,
+            "favorable"
+          ),
+          {
+            source: "Anonymous Festival Chorus",
+            sourceNpcId: "campHealer",
+            faction: "refugees",
+            tags: ["route-pool", "public-sympathy", "rumor-route", "day-band-10-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "refugees", delta: 1 }],
+    }),
+    choice({
+      id: "D",
+      label: "Cancel the festival",
+      description: "Reduce irritation and noise before court, at the cost of public momentum.",
+      outcomeText:
+        "The silence calms officials, but it also leaves a rumor that the caravan feared public memory more than it trusted it.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Cancelled Festival Rumor",
+            "A rumor spreads that the caravan suppressed a refugee festival on the eve of court attention.",
+            "River Refugee Camp rumor lane",
+            0.58,
+            "neutral"
+          ),
+          {
+            source: "Camp Stall Whisper",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "rumor-route", "day-band-10-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "refugees", delta: -1 }],
+    }),
+  ],
+};
+
+const medicinePriceSpike: StoryScene = {
+  id: "medicine-price-spike",
+  phase: "loop_two",
+  day: 11,
+  location: "Deer Village",
+  title: "Medicine Price Spike",
+  description:
+    "Villagers discover medicine prices doubled after the accusation, opening a chance to turn public anger into proof, leverage, or rumor.",
+  involvedNpcIds: ["villageApothecary", "foxLedgerMaster", "crowBrokerNarrator"],
+  routeTags: ["truth", "merchant", "rumor"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Publish the price spike record",
+      description: "Make the price surge visible as something measurable rather than whispered.",
+      outcomeText:
+        "The record is plain enough for court and sharp enough for villagers to understand instantly.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Price Spike Record",
+            "A village price sheet shows medicine costs doubling after the theft accusation hardened.",
+            "Deer Village market board",
+            0.81,
+            "favorable"
+          ),
+          {
+            source: "Village Price Board",
+            sourceNpcId: "villageApothecary",
+            faction: "deerVillage",
+            tags: ["route-pool", "truth-route", "system-evidence", "day-band-11-12"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "deerVillage", delta: -1 },
+        { faction: "bearCourt", delta: 1 },
+      ],
+    }),
+    choice({
+      id: "B",
+      label: "Use it in Fox settlement talks",
+      description: "Treat the data as leverage for a cleaner personal outcome.",
+      outcomeText:
+        "The number becomes a bargaining chip rather than a public accusation.",
+      memoryEffects: [
+        withStorySource(
+          publicContract(
+            "Settlement Leverage Note",
+            "A settlement note records that medicine price inflation became part of the caravan’s negotiation leverage.",
+            "Fox Market settlement ledger",
+            0.77,
+            "favorable"
+          ),
+          {
+            source: "Fox Settlement Margin Note",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "merchant-route", "day-band-11-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: 1 }],
+    }),
+    choice({
+      id: "C",
+      label: "Turn it into a Crow story",
+      description: "Let the public outrage travel faster than any audit can move.",
+      outcomeText:
+        "The story catches because the price pain is fresh and easy for people to recognize.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Market Control Rumor",
+            "A public rumor links the price spike to deliberate market control around the medicine shortage.",
+            "Fox Market rumor circuit",
+            0.68,
+            "favorable"
+          ),
+          {
+            source: "Crow Price Whisper",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "public-sympathy", "rumor-route", "system-evidence", "day-band-11-12"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "crowBrokers", delta: 1 },
+        { faction: "refugees", delta: 1 },
+      ],
+    }),
+    choice({
+      id: "D",
+      label: "Ignore it as too indirect",
+      description: "Leave the pattern alone and focus on more immediate problems.",
+      outcomeText:
+        "The chance passes into a fragile trace instead of a stable accusation.",
+      memoryEffects: [
+        withStorySource(
+          shortTermMemory(
+            "Ignored Price Trace",
+            "A private trace notes that the caravan saw the price spike and let it pass unrecorded.",
+            "Deer Village market lane",
+            0.46,
+            "neutral"
+          ),
+          {
+            source: "Caravan Clerk Memory",
+            tags: ["route-pool", "short-term", "day-band-11-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "deerVillage", delta: 0 }],
+    }),
+  ],
+};
+
+const crowBrokersFinalSpin: StoryScene = {
+  id: "crow-brokers-final-spin",
+  phase: "loop_two",
+  day: 12,
+  location: "Fox Market",
+  title: "Crow Broker’s Final Spin",
+  description:
+    "A Crow broker offers one last region-wide frame before Bear Court closes the doors and freezes the public story.",
+  involvedNpcIds: ["crowBrokerNarrator", "foxLedgerMaster", "bearJudgeAuthority"],
+  routeTags: ["rumor", "merchant", "truth"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Spread the hero narrative",
+      description: "Leave the road with one final story of rescue rather than theft.",
+      outcomeText:
+        "The broadside moves quickly and gives public sympathy one last surge before court dawn.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Final Hero Broadside",
+            "A final Crow broadside frames the blue caravan as the road’s last honest answer to fever and delay.",
+            "Fox Market broadside wall",
+            0.73,
+            "favorable"
+          ),
+          {
+            source: "Final Crow Sheet",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "public-sympathy", "rumor-route", "day-band-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "crowBrokers", delta: 1 }],
+    }),
+    choice({
+      id: "B",
+      label: "Spread a merchant-friendly settlement story",
+      description: "Prepare the public to accept a quiet procedural close.",
+      outcomeText:
+        "The road hears that the case is becoming paperwork rather than scandal.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Merchant-Friendly Rumor",
+            "A final rumor claims the caravan and Fox Market are nearing a clean settlement that will calm the roads.",
+            "Fox Market broadside wall",
+            0.7,
+            "favorable"
+          ),
+          {
+            source: "Fox-Friendly Crow Sheet",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "merchant-route", "rumor-route", "day-band-12"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "crowBrokers", delta: 1 },
+        { faction: "foxMarket", delta: 1 },
+      ],
+    }),
+    choice({
+      id: "C",
+      label: "Spread an anti-tax officer story",
+      description: "Push blame upward and hope later records can carry it the rest of the way.",
+      outcomeText:
+        "The story is sharp and risky. Without support, it could sound like desperation rather than exposure.",
+      memoryEffects: [
+        withStorySource(
+          publicRumor(
+            "Anti-Tax Officer Rumor",
+            "A final regional story claims the royal tax officer engineered the medicine shortage and framed the caravan.",
+            "Fox Market broadside wall",
+            0.66,
+            "favorable"
+          ),
+          {
+            source: "Crow Anti-Tax Sheet",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "system-evidence", "rumor-route", "day-band-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "crowBrokers", delta: 1 }],
+    }),
+    choice({
+      id: "D",
+      label: "Refuse final spin",
+      description: "Decline one more public frame and rely on the quieter record instead.",
+      outcomeText:
+        "The choice leaves no stable story behind, only a fading trace that the caravan walked away from one last chance to define itself.",
+      memoryEffects: [
+        withStorySource(
+          shortTermMemory(
+            "Refused Spin Memory",
+            "A private memory recalls that the caravan declined a final public spin before court.",
+            "Fox Market side room",
+            0.52,
+            "neutral"
+          ),
+          {
+            source: "Crow Broker Meeting",
+            tags: ["route-pool", "short-term", "day-band-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "crowBrokers", delta: -1 }],
+    }),
+  ],
+};
+
+const finalCounterOffer: StoryScene = {
+  id: "final-counter-offer",
+  phase: "loop_two",
+  day: 12,
+  location: "Bear Court",
+  title: "Final Counter-Offer",
+  description:
+    "On the courthouse steps, Deer/Bear legalists, Fox merchants, and Crow brokers each offer one incompatible way to frame the final story.",
+  involvedNpcIds: ["bearJudgeAuthority", "foxLedgerMaster", "crowBrokerNarrator"],
+  routeTags: ["truth", "merchant", "rumor"],
+  choices: [
+    choice({
+      id: "A",
+      label: "Accept Deer/Bear legal compromise",
+      description: "Trade a cleaner legal path for a smaller truth.",
+      outcomeText:
+        "The compromise does not expose everything, but it gives the court a language for partial justification.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Deer Apology Draft",
+            "A draft compromise notes that Deer Village may soften its accusation if the court frames the case as emergency misconduct rather than simple theft.",
+            "Bear Court courthouse steps",
+            0.78,
+            "favorable"
+          ),
+          {
+            source: "Deer-Bear Courthouse Draft",
+            sourceNpcId: "bearJudgeAuthority",
+            faction: "bearCourt",
+            tags: ["route-pool", "truth-route", "day-band-12"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "bearCourt", delta: 1 },
+        { faction: "deerVillage", delta: 1 },
+      ],
+    }),
+    choice({
+      id: "B",
+      label: "Accept Fox sealed release",
+      description: "Take the market’s clean exit and let the deeper road stay rotten.",
+      outcomeText:
+        "The release is the sort of paper that closes cases even when it solves nothing underneath.",
+      memoryEffects: [
+        withStorySource(
+          publicContract(
+            "Fox Sealed Release",
+            "A sealed Fox release offers to close liability around the caravan if the market framing remains intact.",
+            "Bear Court courthouse steps",
+            0.82,
+            "favorable"
+          ),
+          {
+            source: "Fox Courthouse Release",
+            sourceNpcId: "foxLedgerMaster",
+            faction: "foxMarket",
+            tags: ["route-pool", "merchant-route", "day-band-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "foxMarket", delta: 2 }],
+    }),
+    choice({
+      id: "C",
+      label: "Accept Crow hero oath",
+      description: "Let the public frame outrun the court by binding it to one last promise.",
+      outcomeText:
+        "The oath is emotionally powerful, and that may matter more than procedural caution once the road takes hold of it.",
+      memoryEffects: [
+        withStorySource(
+          publicSong(
+            "Crow Hero Oath",
+            "A public oath-song binds the blue caravan to the story of saving lives when officials failed.",
+            "Bear Court courthouse steps",
+            0.75,
+            "favorable"
+          ),
+          {
+            source: "Crow Oath Performance",
+            sourceNpcId: "crowBrokerNarrator",
+            faction: "crowBrokers",
+            tags: ["route-pool", "public-sympathy", "rumor-route", "day-band-12"],
+          }
+        ),
+      ],
+      factionEffects: [
+        { faction: "crowBrokers", delta: 1 },
+        { faction: "refugees", delta: 1 },
+      ],
+    }),
+    choice({
+      id: "D",
+      label: "Reject all offers",
+      description: "Keep the final story entirely in the caravan’s own hands.",
+      outcomeText:
+        "The refusal preserves independence, but it also leaves behind a thin record that every faction offered help the caravan would not take.",
+      memoryEffects: [
+        withStorySource(
+          publicRecord(
+            "Rejected Offers Note",
+            "A courthouse note records that the caravan rejected legal, merchant, and public-frame help on the eve of the hearing.",
+            "Bear Court courthouse steps",
+            0.74,
+            "neutral"
+          ),
+          {
+            source: "Courthouse Offer Ledger",
+            sourceNpcId: "bearJudgeAuthority",
+            faction: "bearCourt",
+            tags: ["route-pool", "timeline-evidence", "day-band-12"],
+          }
+        ),
+      ],
+      factionEffects: [{ faction: "bearCourt", delta: -1 }],
+    }),
+  ],
+};
+
+export const gameScenePool: StoryScene[] = [
+  withSelectionMeta(gameScenes[0], { dayOptions: [1], selectionBucket: "anchor", isAnchor: true }),
+  withSelectionMeta(gameScenes[1], { dayOptions: [2, 3], selectionBucket: "early" }),
+  withSelectionMeta(gameScenes[2], { dayOptions: [2, 3, 4], selectionBucket: "early" }),
+  withSelectionMeta(gameScenes[3], { dayOptions: [3, 4, 5], selectionBucket: "early" }),
+  withSelectionMeta(gameScenes[4], { dayOptions: [3, 4, 5], selectionBucket: "early" }),
+  withSelectionMeta(gameScenes[5], { dayOptions: [4, 5, 6], selectionBucket: "early" }),
+  withSelectionMeta(borderTollInspection, { dayOptions: [4, 5, 6], selectionBucket: "early" }),
+  withSelectionMeta(rabbitWitnessAtMistwood, { dayOptions: [5, 6], selectionBucket: "early" }),
+  withSelectionMeta(blackMarketPriceList, { dayOptions: [5, 6], selectionBucket: "early" }),
+  withSelectionMeta(refugeeWitnessCircle, { dayOptions: [5, 6], selectionBucket: "early" }),
+  withSelectionMeta(smugglerDebtCall, { dayOptions: [6], selectionBucket: "early" }),
+  withSelectionMeta(gameScenes[6], { dayOptions: [7], selectionBucket: "anchor", isAnchor: true }),
+  withSelectionMeta(gameScenes[7], { dayOptions: [8], selectionBucket: "late" }),
+  withSelectionMeta(gameScenes[8], { dayOptions: [8, 9], selectionBucket: "late" }),
+  withSelectionMeta(gameScenes[9], { dayOptions: [9, 10], selectionBucket: "late" }),
+  withSelectionMeta(crowStoryBackfires, { dayOptions: [9, 10, 11], selectionBucket: "late" }),
+  withSelectionMeta(deerArchivistsIndex, { dayOptions: [10, 11], selectionBucket: "late" }),
+  withSelectionMeta(marketSettlementDinner, { dayOptions: [10, 11, 12], selectionBucket: "late" }),
+  withSelectionMeta(refugeeSongFestival, { dayOptions: [10, 11, 12], selectionBucket: "late" }),
+  withSelectionMeta(gameScenes[10], { dayOptions: [11, 12], selectionBucket: "late" }),
+  withSelectionMeta(medicinePriceSpike, { dayOptions: [11, 12], selectionBucket: "late" }),
+  withSelectionMeta(gameScenes[11], { dayOptions: [12], selectionBucket: "late" }),
+  withSelectionMeta(crowBrokersFinalSpin, { dayOptions: [12], selectionBucket: "late" }),
+  withSelectionMeta(gameScenes[12], { dayOptions: [13], selectionBucket: "anchor", isAnchor: true }),
+  withSelectionMeta(finalCounterOffer, { dayOptions: [12], selectionBucket: "late" }),
+  withSelectionMeta(gameScenes[13], { dayOptions: [14], selectionBucket: "anchor", isAnchor: true }),
+];
+
+export const anchorSceneIds = new Set([
+  "deer-village-medicine-conflict",
+  "first-memory-collapse-night",
+  "court-packet-sorting",
+  "eve-of-bear-court",
+]);
+
+export function getSceneTemplateById(sceneId: string) {
+  return gameScenePool.find((scene) => scene.id === sceneId) ?? null;
+}
+
+export const initialGameState: GameState = createInitialGameState();

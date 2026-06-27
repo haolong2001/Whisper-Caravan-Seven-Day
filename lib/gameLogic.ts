@@ -7,6 +7,7 @@ import {
   MemoryQueryRequest,
   MemoryQueryResult,
   PhaseCard,
+  RouteTag,
   RunPhase,
   SceneChoiceRecord,
   GameState,
@@ -19,15 +20,37 @@ import {
   StoryScene,
 } from "@/lib/types";
 import {
+  buildSceneForDay,
   collapseCheckpoints,
   endingPlaceholder,
-  gameScenes,
+  gameScenePool,
   npcProfiles,
   trialPlaceholder,
 } from "@/lib/mockData";
 
 type LoopPhase = Extract<RunPhase, "loop_one" | "loop_two">;
 type CollapsePhase = Extract<RunPhase, "collapse_one" | "collapse_two">;
+type RoutePressure = Record<RouteTag, number>;
+
+const SCENE_ROUTE_PRIORITY: Partial<Record<StoryScene["id"], RouteTag>> = {
+  "tax-seal-on-the-crates": "truth",
+  "deer-doctors-hidden-diary": "truth",
+  "rabbit-witness-at-mistwood": "truth",
+  "black-market-price-list": "truth",
+  "bear-court-intake-window": "truth",
+  "deer-archivists-index": "truth",
+  "tax-officers-travel-ledger": "truth",
+  "fox-ledger-offer": "merchant",
+  "smuggler-debt-call": "merchant",
+  "fox-audit-second-pass": "merchant",
+  "market-settlement-dinner": "merchant",
+  "crow-relay-framing": "rumor",
+  "refugee-witness-circle": "rumor",
+  "crow-story-backfires": "rumor",
+  "refugee-song-festival": "rumor",
+  "crow-brokers-final-spin": "rumor",
+  "witness-contradiction-hearing": "failure",
+};
 
 function buildMemoryTags(effect: MemoryEffect, scene: StoryScene, choice: Choice) {
   if (effect.tags?.length) {
@@ -153,8 +176,208 @@ function applyResourceEffects(resources: GameResources, effects?: Partial<GameRe
   };
 }
 
-function getSceneIndexForPhase(phase: LoopPhase) {
-  return gameScenes.findIndex((scene) => scene.phase === phase);
+function getScenePhaseForDay(day: number): LoopPhase {
+  return day <= 7 ? "loop_one" : "loop_two";
+}
+
+function compareSceneSelection(left: StoryScene, right: StoryScene) {
+  return compareText(left.title, right.title) || compareText(left.id, right.id);
+}
+
+function getAnchorSceneForDay(day: number) {
+  return (
+    gameScenePool.find(
+      (scene) => scene.isAnchor && scene.dayOptions?.includes(day)
+    ) ?? null
+  );
+}
+
+export function getRoutePressures(gameState: GameState): RoutePressure {
+  const scores: RoutePressure = {
+    truth: 0,
+    merchant: 0,
+    rumor: 0,
+    failure: 0,
+  };
+
+  for (const memory of gameState.memories) {
+    if (memory.tags.includes("truth-route")) {
+      scores.truth += 2;
+    }
+
+    if (memory.tags.includes("system-evidence")) {
+      scores.truth += 3;
+    }
+
+    if (memory.tags.includes("necessity")) {
+      scores.truth += 2;
+    }
+
+    if (memory.tags.includes("court-filing")) {
+      scores.truth += 2;
+    }
+
+    if (memory.type === "record" || memory.type === "contract") {
+      scores.truth += memory.evidenceRole === "incriminating" ? 0 : 1;
+    }
+
+    if (memory.tags.includes("merchant-route")) {
+      scores.merchant += 2;
+    }
+
+    if (memory.type === "contract") {
+      scores.merchant += 2;
+    }
+
+    if (memory.tags.includes("public-sympathy")) {
+      scores.rumor += 2;
+    }
+
+    if (memory.tags.includes("rumor-route")) {
+      scores.rumor += 1;
+    }
+
+    if (memory.type === "song" || memory.type === "rumor") {
+      scores.rumor += 1;
+    }
+
+    if (
+      memory.evidenceRole === "incriminating" ||
+      memory.tags.includes("contradiction") ||
+      memory.tags.includes("failure-route") ||
+      memory.tags.includes("wanted-notice")
+    ) {
+      scores.failure += 2;
+    }
+
+    if (!memory.active && memory.type === "short_term" && memory.evidenceRole !== "incriminating") {
+      scores.failure += 1;
+    }
+  }
+
+  scores.truth += Math.max(gameState.factions.bearCourt, 0);
+  scores.truth += Math.max(gameState.factions.refugees, 0);
+  scores.merchant += Math.max(gameState.factions.foxMarket, 0);
+  scores.rumor += Math.max(gameState.factions.crowBrokers, 0);
+  scores.rumor += Math.max(gameState.factions.refugees, 0);
+  scores.failure += Math.max(-gameState.factions.deerVillage, 0);
+  scores.failure += Math.max(-gameState.factions.bearCourt, 0);
+  scores.failure += gameState.resources.legalRisk;
+
+  return scores;
+}
+
+function scoreSceneTemplateForState(
+  scene: StoryScene,
+  gameState: GameState,
+  routePressures: RoutePressure,
+  day: number
+) {
+  let score = 0;
+  const leadRouteTag = scene.routeTags?.[0];
+
+  if (leadRouteTag) {
+    score += routePressures[leadRouteTag] * 6;
+  }
+
+  const prioritizedRoute = SCENE_ROUTE_PRIORITY[scene.id];
+
+  if (prioritizedRoute) {
+    score += routePressures[prioritizedRoute] * 5;
+  }
+
+  for (const routeTag of scene.routeTags ?? []) {
+    score += routePressures[routeTag] * 3;
+  }
+
+  score -= Math.abs(scene.day - day) * 2;
+
+  if (scene.routeTags?.includes("truth")) {
+    score += gameState.factions.bearCourt + gameState.factions.refugees;
+  }
+
+  if (scene.routeTags?.includes("merchant")) {
+    score += gameState.factions.foxMarket;
+  }
+
+  if (scene.routeTags?.includes("rumor")) {
+    score += gameState.factions.crowBrokers + gameState.factions.refugees;
+  }
+
+  if (scene.routeTags?.includes("failure")) {
+    score += routePressures.failure * 2;
+  }
+
+  if (scene.id === "return-to-deer-village-gate") {
+    score += routePressures.truth + routePressures.failure;
+  }
+
+  if (scene.id === "final-counter-offer") {
+    score += Math.max(routePressures.truth, routePressures.merchant, routePressures.rumor);
+  }
+
+  return score;
+}
+
+function selectSceneTemplateForDay(gameState: GameState, day: number) {
+  const anchorScene = getAnchorSceneForDay(day);
+
+  if (anchorScene) {
+    return anchorScene;
+  }
+
+  const seenSceneIds = new Set(gameState.scenePlan.map((scene) => scene.id));
+  const routePressures = getRoutePressures(gameState);
+  const matchingCandidates = gameScenePool.filter(
+    (scene) =>
+      !scene.isAnchor &&
+      !seenSceneIds.has(scene.id) &&
+      scene.dayOptions?.includes(day) &&
+      scene.selectionBucket === (day <= 7 ? "early" : "late")
+  );
+
+  const candidates =
+    matchingCandidates.length > 0
+      ? matchingCandidates
+      : gameScenePool.filter(
+          (scene) =>
+            !scene.isAnchor &&
+            !seenSceneIds.has(scene.id) &&
+            scene.selectionBucket === (day <= 7 ? "early" : "late")
+        );
+
+  if (candidates.length === 0) {
+    throw new Error(`No selectable scene template available for day ${day}.`);
+  }
+
+  return [...candidates].sort((left, right) => {
+    const scoreDelta =
+      scoreSceneTemplateForState(right, gameState, routePressures, day) -
+      scoreSceneTemplateForState(left, gameState, routePressures, day);
+
+    return scoreDelta || compareSceneSelection(left, right);
+  })[0];
+}
+
+function ensurePlannedSceneForDay(gameState: GameState, day: number) {
+  const plannedIndex = gameState.scenePlan.findIndex((scene) => scene.day === day);
+
+  if (plannedIndex >= 0) {
+    return {
+      scenePlan: gameState.scenePlan,
+      sceneIndex: plannedIndex,
+      scene: gameState.scenePlan[plannedIndex],
+    };
+  }
+
+  const template = selectSceneTemplateForDay(gameState, day);
+  const nextScene = buildSceneForDay(template, day);
+
+  return {
+    scenePlan: [...gameState.scenePlan, nextScene],
+    sceneIndex: gameState.scenePlan.length,
+    scene: nextScene,
+  };
 }
 
 function getLoopPhaseLabel(phase: LoopPhase) {
@@ -193,7 +416,7 @@ export function getCurrentScene(gameState: GameState) {
     return null;
   }
 
-  return gameScenes[gameState.currentSceneIndex] ?? null;
+  return gameState.scenePlan[gameState.currentSceneIndex] ?? null;
 }
 
 export function getSceneChoiceRecord(gameState: GameState, sceneId: string): SceneChoiceRecord | null {
@@ -324,14 +547,20 @@ function advanceLoopScene(gameState: GameState): GameState {
     return gameState;
   }
 
-  const nextScene = gameScenes[currentIndex + 1] ?? null;
   const nextPhase = getNextRunPhase(gameState.phase);
+  const nextDay = scene.day + 1;
 
-  if (nextScene && nextScene.phase === gameState.phase) {
+  if (
+    nextDay <= (gameState.phase === "loop_one" ? 7 : 14) &&
+    !(gameState.phase === "loop_one" && nextDay === 8)
+  ) {
+    const { scenePlan, sceneIndex, scene: nextScene } = ensurePlannedSceneForDay(gameState, nextDay);
+
     return {
       ...gameState,
       currentDay: nextScene.day,
-      currentSceneIndex: currentIndex + 1,
+      currentSceneIndex: sceneIndex,
+      scenePlan,
       sceneStatus: buildSceneIntro(nextScene, scene),
     };
   }
@@ -370,18 +599,21 @@ function advanceCollapsePhase(gameState: GameState): GameState {
   const nextMemories = applySevenDayForgetting(gameState.memories, checkpoint.nextDay);
 
   if (nextPhase === "loop_two") {
-    const nextSceneIndex = getSceneIndexForPhase(nextPhase);
-    const nextScene = nextSceneIndex >= 0 ? gameScenes[nextSceneIndex] : null;
-
-    if (!nextScene) {
-      return gameState;
-    }
+    const postCollapseState = {
+      ...gameState,
+      memories: nextMemories,
+    };
+    const { scenePlan, sceneIndex, scene: nextScene } = ensurePlannedSceneForDay(
+      postCollapseState,
+      checkpoint.nextDay
+    );
 
     return {
       ...gameState,
       phase: nextPhase,
       currentDay: nextScene.day,
-      currentSceneIndex: nextSceneIndex,
+      currentSceneIndex: sceneIndex,
+      scenePlan,
       memories: nextMemories,
       sceneStatus: buildSceneIntro(nextScene),
     };

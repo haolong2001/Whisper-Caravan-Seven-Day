@@ -42,6 +42,18 @@ const LEGAL_TRUTH_WEIGHTS = new Map<string, number>([
   ["Missing Dose Table", 2],
   ["Court Intake Statement", 2],
   ["Clarified Testimony Sheet", 2],
+  ["Rabbit Testimony", 2],
+  ["Protected Witness Note", 2],
+  ["Group Refugee Testimony", 2],
+  ["Medicine Price List", 2],
+  ["Fox Supply Markup", 2],
+  ["Archive Index Match", 2],
+  ["Missing Medicine Entry", 2],
+  ["Tax Hold Pattern", 2],
+  ["Price Control Clause", 2],
+  ["Price Spike Record", 2],
+  ["Precise Healing Ballad", 1],
+  ["Deer Apology Draft", 1],
   ["Crate Seal Date Mismatch", 1],
   ["Evidence Filing Receipt", 1],
   ["Gate Challenge Record", 1],
@@ -56,9 +68,14 @@ const MERCHANT_SETTLEMENT_WEIGHTS = new Map<string, number>([
   ["Market Settlement Contract", 4],
   ["Merchant Packet", 4],
   ["Fox Audit Seal", 3],
+  ["Fox Sealed Release", 3],
   ["Clean-Looking Route Ledger", 2],
+  ["Settlement Leverage Note", 2],
+  ["Debt Negotiation Record", 2],
+  ["Sealed Liability Clause", 2],
   ["Black Market Debt Note", 1],
   ["Fox Buyer Interest", 1],
+  ["Merchant-Friendly Rumor", 1],
 ]);
 
 const PUBLIC_SYMPATHY_WEIGHTS = new Map<string, number>([
@@ -67,6 +84,15 @@ const PUBLIC_SYMPATHY_WEIGHTS = new Map<string, number>([
   ["Nightfire Chorus", 2],
   ["Song Packet", 2],
   ["Crow Hero Broadside", 2],
+  ["Healing Road Song", 3],
+  ["Festival Witness Chorus", 3],
+  ["Precise Healing Ballad", 2],
+  ["Anonymous Shelter Song", 1],
+  ["Anonymous Thanks", 1],
+  ["Corrected Crow Broadside", 2],
+  ["Final Hero Broadside", 2],
+  ["Crow Hero Oath", 2],
+  ["Market Control Rumor", 1],
   ["Village Gate Sympathy", 1],
   ["Midnight Leak Rumor", 1],
 ]);
@@ -82,6 +108,14 @@ const FAILURE_PRESSURE_WEIGHTS = new Map<string, number>([
   ["Practiced Alibi Story", 2],
   ["Contradiction Sheet", 2],
   ["Public Suspicion Entry", 2],
+  ["Porter Heard Coughing", 2],
+  ["Suspicious Toll Stamp", 2],
+  ["Stolen Archive Page", 2],
+  ["Unpaid Debt Mark", 2],
+  ["Distorted Hero Rumor", 2],
+  ["Silenced Courier Story", 2],
+  ["Destroyed Price Sheet Rumor", 1],
+  ["Exaggerated Rescue Story", 1],
   ["Blackmail Trace", 2],
   ["Sold Ledger Rumor", 2],
   ["Noisy Docket", 2],
@@ -96,11 +130,16 @@ const ROYAL_TAX_TITLES = new Set([
   "Royal Tax Seal Copy",
   "Tax Officer Travel Ledger",
   "Royal Seal Route Map",
+  "Rabbit Testimony",
 ]);
 
 const FOX_CONTROL_TITLES = new Set([
   "Fox Medicine Stock Ledger",
   "Audit Gap",
+  "Medicine Price List",
+  "Fox Supply Markup",
+  "Price Control Clause",
+  "Price Spike Record",
 ]);
 
 const NECESSITY_TITLES = new Set([
@@ -109,6 +148,8 @@ const NECESSITY_TITLES = new Set([
   "Protected Doctor Statement",
   "Missing Dose Table",
   "Deer Doctor Diary",
+  "Protected Witness Note",
+  "Group Refugee Testimony",
 ]);
 
 const SETTLEMENT_TITLES = new Set([
@@ -116,6 +157,8 @@ const SETTLEMENT_TITLES = new Set([
   "Merchant Packet",
   "Fox Audit Seal",
   "Clean-Looking Route Ledger",
+  "Fox Sealed Release",
+  "Market Settlement Contract",
 ]);
 
 const HERO_TITLES = new Set([
@@ -126,6 +169,12 @@ const HERO_TITLES = new Set([
   "Village Gate Sympathy",
   "Song Packet",
   "Midnight Leak Rumor",
+  "Healing Road Song",
+  "Festival Witness Chorus",
+  "Precise Healing Ballad",
+  "Corrected Crow Broadside",
+  "Final Hero Broadside",
+  "Crow Hero Oath",
 ]);
 
 function hasTag(evidence: RetrievedEvidence | EvaluatedEvidence | MemoryItem, tag: string) {

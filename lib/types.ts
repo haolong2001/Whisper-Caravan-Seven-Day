@@ -91,6 +91,9 @@ export type StoryScene = GameEvent & {
   phase: Extract<RunPhase, "loop_one" | "loop_two">;
   involvedNpcIds?: StoryNpcId[];
   routeTags?: RouteTag[];
+  dayOptions?: number[];
+  selectionBucket?: "anchor" | "early" | "late";
+  isAnchor?: boolean;
 };
 
 export type MemoryItem = {
@@ -297,6 +300,7 @@ export type GameState = {
   phase: RunPhase;
   currentDay: number;
   currentSceneIndex: number | null;
+  scenePlan: StoryScene[];
   memories: MemoryItem[];
   factions: FactionState;
   resources: GameResources;
