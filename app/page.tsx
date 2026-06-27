@@ -1,13 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { DayTracker } from "@/components/DayTracker";
 import { EvidencePanel } from "@/components/EvidencePanel";
 import { GameScene } from "@/components/GameScene";
-import { MemoryCollapsePanel } from "@/components/MemoryCollapsePanel";
 import { MemoryPanel } from "@/components/MemoryPanel";
 import { StatusPanel } from "@/components/StatusPanel";
 import { TrialPanel } from "@/components/TrialPanel";
+import { createInitialGameState } from "@/lib/mockData";
+import { getSceneIllustration } from "@/lib/sceneImages";
 import {
   ChoiceId,
   GameState,
@@ -15,7 +16,6 @@ import {
   RetrievalDebug,
   TrialPreviewItem,
 } from "@/lib/types";
-import { createInitialGameState, initialNpcResponse } from "@/lib/mockData";
 import {
   advanceRunPhase,
   applyChoice,
@@ -41,7 +41,7 @@ import { getNpcReactionResult } from "@/lib/reactionAdapter";
 import { ingestMemories, queryMemories } from "@/lib/retrievalAdapter";
 import { evaluateTrialResult } from "@/lib/trialLogic";
 
-const PLAYTEST_BUILD_LABEL = "Whisper Caravan v0.6 Playtest - Slice 5";
+const PLAYTEST_BUILD_LABEL = "Whisper Caravan v0.6 Playtest - Slice 6";
 const PLAYTEST_SAVE_KEY = "whisper-caravan-v0.5-playtest-save";
 const PLAYTEST_SAVE_VERSION = 2;
 
@@ -115,6 +115,108 @@ function formatSavedAt(savedAt: string | null) {
   return new Date(savedAt).toLocaleString();
 }
 
+type RailTab = "memory" | "evidence";
+
+function TitleCard({
+  hasSavedRun,
+  savedAtLabel,
+  day,
+  phaseLabel,
+  location,
+  onPrimaryAction,
+  onSecondaryAction,
+  onClearSave,
+}: {
+  hasSavedRun: boolean;
+  savedAtLabel: string | null;
+  day: number;
+  phaseLabel: string;
+  location: string;
+  onPrimaryAction: () => void;
+  onSecondaryAction: () => void;
+  onClearSave: () => void;
+}) {
+  return (
+    <main className="story-shell px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1240px] page-rise">
+        <section className="panel panel-glow story-panel overflow-hidden rounded-[2.4rem] shadow-panel">
+          <div className="grid gap-0 xl:grid-cols-[1.15fr_minmax(0,0.85fr)]">
+            <div className="relative min-h-[340px] xl:min-h-[620px]">
+              <Image
+                src="/images/scenes/event_01_deer_village_medicine_conflict.png"
+                alt="Whisper Caravan approaching Deer Village with contested medicine."
+                fill
+                priority
+                sizes="(max-width: 1280px) 100vw, 55vw"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(27,17,11,0.12)_0%,rgba(27,17,11,0.4)_50%,rgba(16,11,8,0.92)_100%)]" />
+              <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+                <p className="text-[11px] uppercase tracking-[0.42em] text-amber-100/80">
+                  Whisper Caravan
+                </p>
+                <h1 className="font-display mt-4 max-w-2xl text-4xl text-[#fff5e1] sm:text-6xl">
+                  Seven-Day Memory
+                </h1>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-200 sm:text-base">
+                  A warm road, a thinning memory, and a court that arrives whether the truth is ready or not.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-between p-6 sm:p-8">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.38em] text-amber-100/70">
+                  Caravan Ledger
+                </p>
+                <h2 className="font-display mt-4 text-3xl text-parchment sm:text-4xl">
+                  {hasSavedRun ? "Continue the road already taken" : "Begin a fourteen-day road to Bear Court"}
+                </h2>
+                <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base">
+                  {hasSavedRun
+                    ? `Saved ${savedAtLabel ?? "earlier"} on Day ${day} during ${phaseLabel} at ${location}.`
+                    : "Each day offers one decisive event. Memories fade, evidence hardens, and the final judgment waits at the end of the road."}
+                </p>
+              </div>
+
+              <div className="mt-8 space-y-4">
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={onPrimaryAction}
+                    className="rounded-full bg-amber-500 px-6 py-3 text-sm font-semibold text-stone-950 transition hover:bg-amber-400"
+                  >
+                    {hasSavedRun ? "Continue" : "Start Journey"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onSecondaryAction}
+                    className="rounded-full border border-white/10 bg-black/20 px-6 py-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10"
+                  >
+                    {hasSavedRun ? "Restart Run" : "Start Fresh"}
+                  </button>
+                  {hasSavedRun ? (
+                    <button
+                      type="button"
+                      onClick={onClearSave}
+                      className="rounded-full border border-white/10 bg-black/20 px-6 py-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10"
+                    >
+                      Clear Save
+                    </button>
+                  ) : null}
+                </div>
+                <p className="text-xs uppercase tracking-[0.28em] text-stone-400">
+                  Progress saves locally on this browser.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
 export default function Home() {
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [sessionId, setSessionId] = useState(createSessionId);
@@ -130,6 +232,7 @@ export default function Home() {
   const [reactionSource, setReactionSource] = useState<"backend" | "local" | null>(null);
   const [reactionLoading, setReactionLoading] = useState(false);
   const [showDeveloperDetails, setShowDeveloperDetails] = useState(false);
+  const [activeRailTab, setActiveRailTab] = useState<RailTab>("memory");
   const pendingReactionKeyRef = useRef<string | null>(null);
   const isDeveloperMode = process.env.NODE_ENV !== "production";
 
@@ -140,6 +243,7 @@ export default function Home() {
     gameState.phase === "collapse_one" || gameState.phase === "collapse_two"
       ? getCollapseCheckpoint(gameState.phase)
       : null;
+  const currentIllustration = getSceneIllustration(currentScene?.id ?? null);
   const isLoopPhase = gameState.phase === "loop_one" || gameState.phase === "loop_two";
   const isCollapsePhase = Boolean(currentCollapseCheckpoint);
   const showsAllActiveEvidence = gameState.phase === "trial" || gameState.phase === "ending";
@@ -153,28 +257,28 @@ export default function Home() {
       ? evaluateTrialResult(gameState)
       : null;
   const resolutionPhase = gameState.phase === "trial" ? "trial" : "ending";
-  const headline = showsAllActiveEvidence ? "Trial Evidence Stack" : "Evidence Ledger";
+  const headline = showsAllActiveEvidence ? "Trial Record" : "Evidence Ledger";
   const overviewText = isCollapsePhase
-    ? "A collapse boundary is approaching. Short-term traces that will expire next are separated in the collapse panel while durable public evidence remains visible."
+    ? "The caravan is approaching a forgetting boundary. Only what still holds shape will remain easy to prove."
     : showsAllActiveEvidence
-      ? "The run has reached Bear Court. The evidence panel now shows the full active stack that survives into the trial and ending."
+      ? "Bear Court can now see the full surviving evidence stack, including what the road kept alive long enough to matter."
       : currentChoiceRecord
-        ? "This day is resolved. The evidence ledger shows the public trail that currently survives for the road to read."
-        : initialNpcResponse;
+        ? "The day has settled. This panel tracks the public trail and witness proof still available to the road."
+        : "The road is still thin with proof. Evidence gathered here will decide what survives memory loss and what reaches Bear Court.";
   const statusText = isLoopPhase
     ? currentChoiceRecord
-      ? "Scene locked"
-      : "Decision open"
+      ? "The day's choice is sealed."
+      : "A decision is waiting."
     : isCollapsePhase
-      ? "Collapse checkpoint active"
+      ? "A memory collapse is underway."
       : gameState.phase === "trial"
-        ? `Trial verdict ${trialResult?.outcome.verdictLabel ?? "ready"}`
-        : `Ending ${trialResult?.selectedEndingId ?? "ready"}`;
+        ? `Bear Court is ready to weigh ${trialResult?.outcome.verdictLabel ?? "the case"}.`
+        : `${trialResult?.outcome.verdictLabel ?? "The verdict"} has been delivered.`;
   const actionLabel =
     gameState.phase === "ending"
       ? undefined
       : isCollapsePhase
-        ? "Apply Collapse"
+        ? "Pass the Night"
         : gameState.phase === "trial"
           ? "Read Ending"
           : "Continue";
@@ -295,6 +399,12 @@ export default function Home() {
     showsAllActiveEvidence,
   ]);
 
+  useEffect(() => {
+    if (gameState.phase === "trial" || gameState.phase === "ending") {
+      setActiveRailTab("evidence");
+    }
+  }, [gameState.phase]);
+
   const handleChoiceSelect = (choiceId: ChoiceId) => {
     if (!currentScene || currentChoiceRecord) {
       return;
@@ -313,13 +423,18 @@ export default function Home() {
     setGameState((previousState) => advanceRunPhase(previousState));
   };
 
+  const resetRunPresentation = () => {
+    setBackendNotice(null);
+    setReactionNotice(null);
+    setReactionSource(null);
+    setActiveRailTab("memory");
+  };
+
   const handleStartNewRun = () => {
     setGameState(createInitialGameState());
     setSessionId(createSessionId());
     setHasStarted(true);
-    setBackendNotice(null);
-    setReactionNotice(null);
-    setReactionSource(null);
+    resetRunPresentation();
   };
 
   const handleContinueRun = () => {
@@ -334,9 +449,7 @@ export default function Home() {
     setGameState(createInitialGameState());
     setSessionId(createSessionId());
     setHasStarted(true);
-    setBackendNotice(null);
-    setReactionNotice(null);
-    setReactionSource(null);
+    resetRunPresentation();
   };
 
   const handleClearSave = () => {
@@ -349,9 +462,7 @@ export default function Home() {
     setHasSavedRun(false);
     setLastSavedAt(null);
     setHasStarted(false);
-    setBackendNotice(null);
-    setReactionNotice(null);
-    setReactionSource(null);
+    resetRunPresentation();
   };
 
   const handleNpcInteraction = async () => {
@@ -379,11 +490,7 @@ export default function Home() {
       const result = await getNpcReactionResult(request);
 
       setReactionSource(result.source);
-      setReactionNotice(
-        result.source === "backend"
-          ? `${npcAvailability.name} responded using backend-assisted retrieval.`
-          : `${npcAvailability.name} responded using deterministic local fallback.`
-      );
+      setReactionNotice(`${npcAvailability.name} answered, and the road shifts around what they revealed.`);
       setGameState((previousState) =>
         markStructuredNpcReactionApplied(
           applyNpcReaction(previousState, result.data),
@@ -401,17 +508,19 @@ export default function Home() {
 
   if (!hasHydrated) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-[1700px] flex-col px-4 py-6 sm:px-6 lg:px-8">
-        <div className="rounded-[2rem] border border-white/10 bg-black/20 px-6 py-8 shadow-panel">
-          <p className="text-xs uppercase tracking-[0.35em] text-amber-100/70">
-            {PLAYTEST_BUILD_LABEL}
-          </p>
-          <h1 className="font-display mt-3 text-4xl text-parchment sm:text-5xl">
-            Whisper Caravan: Seven-Day Memory
-          </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 sm:text-base">
-            Loading the current playtest run state.
-          </p>
+      <main className="story-shell px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1200px] page-rise">
+          <section className="panel panel-glow story-panel rounded-[2.2rem] p-8 shadow-panel">
+            <p className="text-[11px] uppercase tracking-[0.42em] text-amber-100/80">
+              Whisper Caravan
+            </p>
+            <h1 className="font-display mt-4 text-4xl text-parchment sm:text-5xl">
+              Seven-Day Memory
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-300 sm:text-base">
+              Opening the caravan ledger.
+            </p>
+          </section>
         </div>
       </main>
     );
@@ -419,219 +528,206 @@ export default function Home() {
 
   if (!hasStarted) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-[1100px] flex-col px-4 py-6 sm:px-6 lg:px-8">
-        <div className="rounded-[2rem] border border-white/10 bg-black/20 px-6 py-8 shadow-panel">
-          <p className="text-xs uppercase tracking-[0.35em] text-amber-100/70">
-            {PLAYTEST_BUILD_LABEL}
-          </p>
-          <h1 className="font-display mt-3 text-4xl text-parchment sm:text-5xl">
-            Whisper Caravan: Seven-Day Memory
-          </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 sm:text-base">
-            A browser playtest of the route-dependent fourteen-day beta slice. Friends
-            can play from Day 1 to Day 14, reach Bear Court, see one deterministic
-            ending, and send back feedback without a backend requirement.
-          </p>
-        </div>
+      <TitleCard
+        hasSavedRun={hasSavedRun}
+        savedAtLabel={savedAtLabel}
+        day={currentPhaseContent.day}
+        phaseLabel={getPhaseLabel(gameState.phase)}
+        location={currentPhaseContent.location}
+        onPrimaryAction={hasSavedRun ? handleContinueRun : handleStartNewRun}
+        onSecondaryAction={handleStartNewRun}
+        onClearSave={handleClearSave}
+      />
+    );
+  }
 
-        <section className="panel panel-glow mt-6 rounded-3xl p-6 shadow-panel">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-2xl">
-              <p className="text-xs uppercase tracking-[0.35em] text-amber-100/70">
-                Playtest Run
+  return (
+    <main className="story-shell px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1540px] page-rise">
+        <header className="panel panel-glow story-panel rounded-[2.2rem] p-6 shadow-panel sm:p-7">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-[11px] uppercase tracking-[0.42em] text-amber-100/80">
+                Whisper Caravan
               </p>
-              <h2 className="font-display mt-3 text-3xl text-parchment">
-                {hasSavedRun ? "Continue the saved caravan route" : "Start a route-dependent run"}
-              </h2>
-              <p className="mt-3 text-sm leading-7 text-stone-300">
-                {hasSavedRun
-                  ? `Saved at ${savedAtLabel ?? "an earlier time"} on Day ${currentPhaseContent.day} during ${getPhaseLabel(gameState.phase)} at ${currentPhaseContent.location}.`
-                  : "One major event resolves each day. Four anchor cards stay fixed, the remaining days pull from the 26-card pool, and two collapse checkpoints lead into the Bear Court trial."}
+              <h1 className="font-display mt-4 text-4xl text-parchment sm:text-5xl">
+                Seven-Day Memory
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-300 sm:text-base">
+                Hold together what the road remembers before Bear Court turns memory into judgment.
               </p>
+              {savedAtLabel ? (
+                <p className="mt-4 text-xs uppercase tracking-[0.28em] text-stone-400">
+                  Local save updated {savedAtLabel}
+                </p>
+              ) : null}
             </div>
+
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={hasSavedRun ? handleContinueRun : handleStartNewRun}
-                className="rounded-full bg-amber-500 px-5 py-3 text-sm font-semibold text-stone-950 transition hover:bg-amber-400"
+                onClick={handleReturnToTitle}
+                className="rounded-full border border-white/10 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10"
               >
-                {hasSavedRun ? "Continue Run" : "Start Playtest"}
+                Title Screen
               </button>
               <button
                 type="button"
-                onClick={handleStartNewRun}
+                onClick={handleRestartRun}
                 className="rounded-full border border-white/10 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10"
               >
                 Restart Run
               </button>
-              {hasSavedRun ? (
+              {isDeveloperMode ? (
                 <button
                   type="button"
-                  onClick={handleClearSave}
+                  onClick={() => setShowDeveloperDetails((previous) => !previous)}
                   className="rounded-full border border-white/10 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10"
                 >
-                  Clear Save
+                  {showDeveloperDetails ? "Hide Debug" : "Debug"}
                 </button>
               ) : null}
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
-            <article className="rounded-3xl border border-white/10 bg-black/20 p-5">
-              <p className="text-xs uppercase tracking-[0.28em] text-amber-100/70">
-                Playable Shape
+          {showDeveloperDetails ? (
+            <div className="mt-6 rounded-[1.6rem] border border-white/10 bg-black/20 p-5">
+              <p className="text-[11px] uppercase tracking-[0.35em] text-amber-100/70">
+                Developer Details
               </p>
-              <p className="mt-3 text-sm leading-6 text-stone-300">
-                Route-dependent 14-day story path drawn from the 26-card pool. One major event still appears per day.
-              </p>
-            </article>
-            <article className="rounded-3xl border border-white/10 bg-black/20 p-5">
-              <p className="text-xs uppercase tracking-[0.28em] text-amber-100/70">
-                Trial Payoff
-              </p>
-              <p className="mt-3 text-sm leading-6 text-stone-300">
-                Bear Court scoring and all five endings remain deterministic.
-              </p>
-            </article>
-            <article className="rounded-3xl border border-white/10 bg-black/20 p-5">
-              <p className="text-xs uppercase tracking-[0.28em] text-amber-100/70">
-                Save Behavior
-              </p>
-              <p className="mt-3 text-sm leading-6 text-stone-300">
-                Progress is stored in local browser storage on this device only.
-              </p>
-            </article>
-          </div>
-        </section>
-      </main>
-    );
-  }
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-stone-300">
+                  <p className="text-[10px] uppercase tracking-[0.28em] text-stone-400">
+                    Build
+                  </p>
+                  <p className="mt-2">{PLAYTEST_BUILD_LABEL}</p>
+                </div>
+                <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-stone-300">
+                  <p className="text-[10px] uppercase tracking-[0.28em] text-stone-400">
+                    Retrieval
+                  </p>
+                  <p className="mt-2">{backendNotice ?? "Backend notice hidden until needed."}</p>
+                  {reactionNotice ? <p className="mt-2">{reactionNotice}</p> : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </header>
 
-  return (
-    <main className="mx-auto flex min-h-screen max-w-[1700px] flex-col px-4 py-6 sm:px-6 lg:px-8">
-      <div className="rounded-[2rem] border border-white/10 bg-black/20 px-6 py-8 shadow-panel">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-xs uppercase tracking-[0.35em] text-amber-100/70">
-              {PLAYTEST_BUILD_LABEL}
-            </p>
-            <h1 className="font-display mt-3 text-4xl text-parchment sm:text-5xl">
-              Whisper Caravan: Seven-Day Memory
-            </h1>
-            <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base">
-              This playtest build keeps one major event per day, two collapse
-              checkpoints, and a deterministic Bear Court verdict plus ending
-              resolution, but the middle of the run now pulls from a deterministic
-              route-dependent 26-card pool. Backend retrieval is optional; the browser
-              can complete the full run through deterministic local fallback.
-            </p>
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0">
+            {trialResult ? (
+              <TrialPanel
+                phase={resolutionPhase}
+                result={trialResult}
+                showDeveloperDetails={showDeveloperDetails}
+              />
+            ) : (
+              <GameScene
+                day={currentPhaseContent.day}
+                location={currentPhaseContent.location}
+                title={currentPhaseContent.title}
+                eventText={currentPhaseContent.description}
+                selectedChoice={currentChoiceRecord?.choiceId ?? null}
+                sceneStatus={gameState.sceneStatus}
+                options={currentScene?.choices ?? []}
+                choicesLocked={Boolean(currentChoiceRecord) || !currentScene}
+                imagePath={currentIllustration?.src ?? null}
+                imageAlt={currentIllustration?.alt ?? currentPhaseContent.title}
+                npcAvailability={npcAvailability}
+                latestNpcReaction={gameState.latestNpcReaction ?? null}
+                npcInteractionDisabled={!currentScene || npcInteractionApplied}
+                npcInteractionLoading={reactionLoading}
+                npcInteractionNotice={
+                  npcInteractionApplied
+                    ? "This witness has already been approached for the current event."
+                    : reactionNotice
+                }
+                onInteractWithNpc={handleNpcInteraction}
+                emptyStateText="This phase does not take a new scene choice. Read the state of the road, then continue when ready."
+                onSelectChoice={handleChoiceSelect}
+              />
+            )}
           </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={handleReturnToTitle}
-              className="rounded-full border border-white/10 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10"
-            >
-              Title Screen
-            </button>
-            <button
-              type="button"
-              onClick={handleRestartRun}
-              className="rounded-full border border-white/10 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10"
-            >
-              Restart Run
-            </button>
-            {isDeveloperMode ? (
-              <button
-                type="button"
-                onClick={() => setShowDeveloperDetails((previous) => !previous)}
-                className="rounded-full border border-white/10 bg-black/20 px-5 py-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10"
-              >
-                {showDeveloperDetails ? "Hide Debug" : "Show Debug"}
-              </button>
-            ) : null}
-          </div>
+
+          <aside className="min-w-0 xl:sticky xl:top-6 xl:self-start">
+            <div className="space-y-6">
+              <StatusPanel
+                day={currentPhaseContent.day}
+                location={currentPhaseContent.location}
+                phaseLabel={getPhaseLabel(gameState.phase)}
+                statusText={statusText}
+                actionLabel={actionLabel}
+                actionDisabled={actionDisabled}
+                onAction={handleAdvance}
+                factions={gameState.factions}
+                resources={gameState.resources}
+              />
+
+              <section className="panel panel-glow story-panel rounded-[2rem] p-5 shadow-panel">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.4em] text-amber-100/70">
+                      Journal
+                    </p>
+                    <p className="mt-2 text-sm text-stone-300">
+                      Choose what to keep in view.
+                    </p>
+                  </div>
+                  <div className="inline-flex rounded-full border border-white/10 bg-black/20 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setActiveRailTab("memory")}
+                      className={`rounded-full px-4 py-2 text-xs uppercase tracking-[0.28em] transition ${
+                        activeRailTab === "memory"
+                          ? "bg-amber-500 text-stone-950"
+                          : "text-stone-300 hover:text-white"
+                      }`}
+                    >
+                      Memory
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveRailTab("evidence")}
+                      className={`rounded-full px-4 py-2 text-xs uppercase tracking-[0.28em] transition ${
+                        activeRailTab === "evidence"
+                          ? "bg-amber-500 text-stone-950"
+                          : "text-stone-300 hover:text-white"
+                      }`}
+                    >
+                      Evidence
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  {activeRailTab === "memory" ? (
+                    <MemoryPanel
+                      memories={gameState.memories}
+                      activeCount={activeMemories.length}
+                      expiredCount={expiredMemories.length}
+                      preview={memoryCollapsePreview}
+                      checkpoint={currentCollapseCheckpoint}
+                    />
+                  ) : (
+                    <EvidencePanel
+                      headline={headline}
+                      overviewText={overviewText}
+                      retrievedEvidence={retrievedEvidence}
+                      evidenceSource={evidenceSource}
+                      evidenceDebug={evidenceDebug}
+                      collectedEvidence={gameState.collectedEvidence ?? []}
+                      latestStructuredReaction={gameState.latestNpcReaction ?? null}
+                      trialPreviewItems={trialPreviewItems}
+                      reactionSource={reactionSource}
+                      showDeveloperDetails={showDeveloperDetails}
+                    />
+                  )}
+                </div>
+              </section>
+            </div>
+          </aside>
         </div>
-        {savedAtLabel ? (
-          <p className="mt-4 text-xs uppercase tracking-[0.28em] text-stone-400">
-            Local save updated {savedAtLabel}
-          </p>
-        ) : null}
-      </div>
-
-      {isDeveloperMode && backendNotice ? (
-        <div className="mt-6 rounded-3xl border border-amber-300/20 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
-          {backendNotice}
-        </div>
-      ) : null}
-
-      <DayTracker
-        day={currentPhaseContent.day}
-        location={currentPhaseContent.location}
-        phaseLabel={getPhaseLabel(gameState.phase)}
-        statusText={statusText}
-        actionLabel={actionLabel}
-        actionDisabled={actionDisabled}
-        onAction={handleAdvance}
-      />
-
-      <StatusPanel factions={gameState.factions} resources={gameState.resources} />
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
-        {trialResult ? (
-          <TrialPanel
-            phase={resolutionPhase}
-            result={trialResult}
-            showDeveloperDetails={showDeveloperDetails}
-          />
-        ) : (
-          <GameScene
-            day={currentPhaseContent.day}
-            location={currentPhaseContent.location}
-            title={currentPhaseContent.title}
-            eventText={currentPhaseContent.description}
-            selectedChoice={currentChoiceRecord?.choiceId ?? null}
-            sceneStatus={gameState.sceneStatus}
-            options={currentScene?.choices ?? []}
-            choicesLocked={Boolean(currentChoiceRecord) || !currentScene}
-            npcAvailability={npcAvailability}
-            latestNpcReaction={gameState.latestNpcReaction ?? null}
-            npcInteractionDisabled={!currentScene || npcInteractionApplied}
-            npcInteractionLoading={reactionLoading}
-            npcInteractionNotice={
-              npcInteractionApplied
-                ? "This NPC interaction has already been used for the current event."
-                : reactionNotice
-            }
-            onInteractWithNpc={handleNpcInteraction}
-            emptyStateText="This checkpoint does not take a new scene choice. Review the collapse preview and continue when ready."
-            onSelectChoice={handleChoiceSelect}
-          />
-        )}
-        <MemoryPanel
-          memories={gameState.memories}
-          activeCount={activeMemories.length}
-          expiredCount={expiredMemories.length}
-        />
-        {memoryCollapsePreview ? (
-          <MemoryCollapsePanel
-            preview={memoryCollapsePreview}
-            checkpoint={currentCollapseCheckpoint}
-          />
-        ) : (
-          <EvidencePanel
-            headline={headline}
-            overviewText={overviewText}
-            retrievedEvidence={retrievedEvidence}
-            evidenceSource={evidenceSource}
-            evidenceDebug={evidenceDebug}
-            collectedEvidence={gameState.collectedEvidence ?? []}
-            latestStructuredReaction={gameState.latestNpcReaction ?? null}
-            trialPreviewItems={trialPreviewItems}
-            reactionSource={reactionSource}
-            showDeveloperDetails={showDeveloperDetails}
-          />
-        )}
       </div>
     </main>
   );

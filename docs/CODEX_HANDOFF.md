@@ -36,16 +36,20 @@ v0.6 slice 5 is now in place:
 
 The browser UI now exposes a player-facing structured NPC reaction loop on relevant event cards. The current run passes its real `sessionId` into structured reaction requests, backend-enabled runs can use retrieval-backed reactions when available, frontend-only fallback still works, and collected structured evidence plus a lightweight trial preview are now visible in the playtest UI without rewriting Bear Court scoring.
 
+v0.6 slice 6 is now in place:
+
+The browser UI now presents the run as an illustrated desktop-first web game surface. Authored event cards display mapped scene art, the right rail uses a compact Day/Status card plus a switchable Memory or Evidence panel, and debug/backend notices remain hidden by default without changing gameplay rules or trial authority.
+
 ## Current v0.6 Goal
 
-Introduce a structured NPC reaction interface in small deterministic slices:
+All planned v0.6 slices are now in place:
 
 - slice 1: shared types, local structured adapter, clamping, and pure state application
 - slice 2: backend fake structured endpoint
 - slice 3: retrieval-backed structured reaction
 - slice 4: LLM dialogue and tone only
 - slice 5: trial evidence notebook integration
-- slice 6: UI feedback for structured reactions
+- slice 6: UI feedback and illustrated presentation shell
 
 ## System Reference
 
@@ -68,23 +72,22 @@ Read `docs/GAME_SYSTEMS.md` when changing:
 
 ## Last Completed
 
-v0.6 slice 5:
+v0.6 slice 6:
 
-- event-card NPC availability helper
-- player-facing structured reaction panel
-- `sessionId` bridge into structured reaction requests
-- deterministic reaction application with duplicate-use guard
-- collected evidence notebook and light trial preview
+- illustrated desktop-first gameplay shell with left scene stage and right status rail
+- explicit 26-scene image mapping with safe fallback rendering
+- switchable Memory/Evidence journal so only one large panel is visible in normal gameplay
+- hidden-by-default debug/backend notices behind the existing debug toggle
+- preserved structured NPC reaction flow, save/continue/restart behavior, and Bear Court resolution phases
 
-Verification on June 27, 2026:
+Verification on June 28, 2026:
 
 - `npm run test:timeline` passes
 - `node --test frontend-tests/reaction-layer.test.mjs frontend-tests/structured-reaction-ui.test.mjs` passes
 - `.venv/bin/python -m unittest backend.tests.test_structured_reaction backend.tests.test_rules backend.tests.test_store backend.tests.test_retrieval` passes
-- `PYTHONPYCACHEPREFIX=/private/tmp/whisper-caravan-pycache .venv/bin/python -m compileall backend/app backend/tests` passes
 - `npm run build` passes
 
-Current repo behavior after v0.6 slice 5:
+Current repo behavior after v0.6 slice 6:
 
 - the game now keeps a 26-card authored pool in `lib/mockData.ts`
 - each run deterministically selects a route-dependent subset of fourteen cards
@@ -123,16 +126,15 @@ Current repo behavior after v0.6 slice 5:
   - failure pressure favors contradiction, suspicion, and pressure cards
 - frontend simulations now prove route-dependent fourteen-day paths still reach the trial and can feed all five endings through deterministic fixtures
 - the browser UI now includes:
-  - visible build label: `Whisper Caravan v0.6 Playtest - Slice 5`
-  - title screen with Start, Continue, Restart, and Clear Save flow
+  - an illustrated title screen with Start, Continue, Restart, and Clear Save flow
   - local save persistence in browser `localStorage`
   - deterministic restore of the current run after refresh
-  - ending presentation that shows ending id and title and asks for screenshot/feedback
+  - a large scene illustration area for authored event cards with safe fallback art treatment when needed
+  - a right rail with one compact Day/Status card and one switchable Memory or Evidence journal
   - developer/debug metadata hidden by default behind a dev-only toggle
   - a structured NPC interaction panel on relevant loop scenes
   - lightweight latest-reaction feedback in the event card
-  - a collected structured evidence notebook in the evidence panel
-  - a non-authoritative trial preview label for collected structured evidence
+  - collected structured evidence and a non-authoritative trial preview inside the evidence journal
 - frontend deployment shape is now safe by default:
   - in development, frontend retrieval still defaults to `http://127.0.0.1:8000`
   - in production, the frontend does not assume a backend unless `NEXT_PUBLIC_BACKEND_URL` is set

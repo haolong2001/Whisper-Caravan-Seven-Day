@@ -1,8 +1,7 @@
+import { useState } from "react";
 import {
   EvidenceSummary,
-  EvaluatedEvidence,
-  NPCReaction as StructuredNPCReaction,
-  NpcReaction,
+  NPCReaction as StructuredNpcReaction,
   RetrievedEvidence,
   RetrievalDebug,
   TrialPreviewItem,
@@ -12,16 +11,23 @@ type EvidencePanelProps = {
   headline: string;
   overviewText: string;
   retrievedEvidence: RetrievedEvidence[];
-  npcReactions?: NpcReaction[] | null;
   evidenceSource: "backend" | "local";
   reactionSource?: "backend" | "local" | null;
   evidenceDebug?: RetrievalDebug | null;
   reactionDebug?: RetrievalDebug | null;
   showDeveloperDetails?: boolean;
   collectedEvidence?: EvidenceSummary[];
-  latestStructuredReaction?: StructuredNPCReaction | null;
+  latestStructuredReaction?: StructuredNpcReaction | null;
   trialPreviewItems?: TrialPreviewItem[];
 };
+
+function excerpt(text: string, maxLength: number) {
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`;
+}
 
 function SourceBadge({
   label,
@@ -38,7 +44,7 @@ function SourceBadge({
       : "border-amber-300/25 bg-amber-400/10 text-amber-100";
 
   return (
-    <div className={`rounded-2xl border px-3 py-2 ${toneClasses}`}>
+    <div className={`rounded-[1.3rem] border px-3 py-3 ${toneClasses}`}>
       <p className="text-[10px] uppercase tracking-[0.3em]">{label}</p>
       <p className="mt-1 text-xs font-semibold uppercase tracking-[0.24em]">
         {source === "backend" ? "Backend" : "Local Fallback"}
@@ -55,351 +61,67 @@ function SourceBadge({
   );
 }
 
-function EvidenceList({
-  title,
-  evidence,
-  emptyText,
-  showDeveloperDetails,
+function SummaryCard({
+  label,
+  value,
+  note,
 }: {
-  title: string;
-  evidence: RetrievedEvidence[];
-  emptyText: string;
-  showDeveloperDetails: boolean;
+  label: string;
+  value: string;
+  note?: string;
 }) {
   return (
-    <div className="mt-6">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">{title}</p>
-        <span className="text-xs uppercase tracking-[0.25em] text-stone-400">
-          {evidence.length} items
-        </span>
-      </div>
-
-      <div className="mt-4 space-y-4">
-        {evidence.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-white/15 p-5 text-sm text-stone-400">
-            {emptyText}
-          </div>
-        ) : (
-          evidence.map((memory) => (
-            <article
-              key={memory.memoryId}
-              className="rounded-3xl border border-white/10 bg-white/5 p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-                  {memory.sourceType.replace("_", " ")}
-                </span>
-                <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-                  {memory.visibility}
-                </span>
-                <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-                  {memory.evidenceRole}
-                </span>
-                <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-                  reliability {Math.round(memory.reliability * 100)}%
-                </span>
-              </div>
-              <h3 className="mt-3 text-lg font-semibold text-white">{memory.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-stone-300">{memory.text}</p>
-              <dl className="mt-4 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">Source</dt>
-                  <dd className="mt-1">{memory.metadata.source}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">Day</dt>
-                  <dd className="mt-1">Day {memory.metadata.day}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-                    Location
-                  </dt>
-                  <dd className="mt-1">{memory.metadata.location}</dd>
-                </div>
-                {showDeveloperDetails ? (
-                  <div>
-                    <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-                      Active
-                    </dt>
-                    <dd className="mt-1">{memory.metadata.active ? "true" : "false"}</dd>
-                  </div>
-                ) : null}
-              </dl>
-              {showDeveloperDetails ? (
-                <p className="mt-3 text-xs uppercase tracking-[0.25em] text-stone-500">
-                  tags {memory.metadata.tags.join(" / ")}
-                </p>
-              ) : null}
-            </article>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function JudgmentList({
-  title,
-  evidence,
-  emptyText,
-  tone,
-}: {
-  title: string;
-  evidence: EvaluatedEvidence[];
-  emptyText: string;
-  tone: "accepted" | "rejected";
-}) {
-  const toneClasses =
-    tone === "accepted"
-      ? "border-emerald-300/20 bg-emerald-400/10"
-      : "border-rose-300/20 bg-rose-400/10";
-  const badgeClasses =
-    tone === "accepted"
-      ? "border-emerald-200/20 text-emerald-100"
-      : "border-rose-200/20 text-rose-100";
-
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <p
-          className={`text-xs uppercase tracking-[0.25em] ${
-            tone === "accepted" ? "text-emerald-200/70" : "text-rose-200/70"
-          }`}
-        >
-          {title}
-        </p>
-        <span className="text-xs uppercase tracking-[0.25em] text-stone-400">
-          {evidence.length} items
-        </span>
-      </div>
-
-      <div className="mt-3 space-y-3">
-        {evidence.length === 0 ? (
-          <p className="text-sm text-stone-400">{emptyText}</p>
-        ) : (
-          evidence.map((item) => (
-            <article
-              key={`${tone}-${item.memoryId}`}
-              className={`rounded-2xl border p-4 ${toneClasses}`}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.28em] ${badgeClasses}`}
-                >
-                  {item.sourceType.replace("_", " ")}
-                </span>
-                <span
-                  className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.28em] ${badgeClasses}`}
-                >
-                  {item.visibility}
-                </span>
-                <span
-                  className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.28em] ${badgeClasses}`}
-                >
-                  {item.evidenceRole}
-                </span>
-                <span
-                  className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.28em] ${badgeClasses}`}
-                >
-                  reliability {Math.round(item.reliability * 100)}%
-                </span>
-              </div>
-              <h3 className="mt-3 text-base font-semibold text-white">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-stone-300">{item.text}</p>
-              <dl className="mt-4 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">Source</dt>
-                  <dd className="mt-1">{item.metadata.source}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">Day</dt>
-                  <dd className="mt-1">Day {item.metadata.day}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-                    Location
-                  </dt>
-                  <dd className="mt-1">{item.metadata.location}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-                    Active
-                  </dt>
-                  <dd className="mt-1">{item.metadata.active ? "true" : "false"}</dd>
-                </div>
-              </dl>
-              <p className="mt-3 text-xs uppercase tracking-[0.25em] text-stone-500">
-                tags {item.metadata.tags.join(" / ")}
-              </p>
-              <p className="mt-3 text-sm leading-6 text-stone-200">{item.decisionReason}</p>
-            </article>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function NpcReactionCard({ reaction }: { reaction: NpcReaction }) {
-  return (
-    <article className="rounded-3xl border border-white/10 bg-black/20 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-amber-100/60">
-            {reaction.profile.faction}
-          </p>
-          <h3 className="mt-2 text-2xl font-semibold text-white">{reaction.profile.name}</h3>
-        </div>
-        <div className="text-right text-xs uppercase tracking-[0.25em] text-stone-400">
-          <div>min reliability {Math.round(reaction.profile.minReliability * 100)}%</div>
-          <div className="mt-1">
-            scopes {reaction.profile.visibleMemoryScopes.join(" / ")}
-          </div>
-        </div>
-      </div>
-
-      <p className="mt-4 text-sm leading-7 text-stone-200">{reaction.dialogue}</p>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <JudgmentList
-          title="Accepted Evidence"
-          evidence={reaction.acceptedEvidence}
-          emptyText="This NPC accepts nothing from the active memory stack."
-          tone="accepted"
-        />
-        <JudgmentList
-          title="Rejected Evidence"
-          evidence={reaction.rejectedEvidence}
-          emptyText="This NPC rejects nothing from the active memory stack."
-          tone="rejected"
-        />
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p className="text-xs uppercase tracking-[0.25em] text-amber-100/70">
-          Reaction Effects
-        </p>
-        <dl className="mt-3 grid gap-4 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-              trustDelta
-            </dt>
-            <dd className="mt-1 text-xl font-semibold text-white">
-              {reaction.effects.trustDelta}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-              priceModifier
-            </dt>
-            <dd className="mt-1 text-xl font-semibold text-white">
-              x{reaction.effects.priceModifier.toFixed(2)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-              questAvailable
-            </dt>
-            <dd className="mt-1 text-xl font-semibold text-white">
-              {reaction.effects.questAvailable ? "true" : "false"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-              legalRiskDelta
-            </dt>
-            <dd className="mt-1 text-xl font-semibold text-white">
-              {reaction.effects.legalRiskDelta}
-            </dd>
-          </div>
-        </dl>
-      </div>
+    <article className="rounded-[1.4rem] border border-white/10 bg-black/20 p-4">
+      <p className="text-[10px] uppercase tracking-[0.3em] text-amber-100/70">{label}</p>
+      <p className="font-display mt-3 text-3xl text-parchment">{value}</p>
+      {note ? <p className="mt-2 text-sm leading-6 text-stone-300">{note}</p> : null}
     </article>
   );
 }
 
-function StructuredEvidenceNotebook({
-  evidence,
-  trialPreviewItems,
+function EvidenceSpotlight({
+  label,
+  title,
+  text,
+  meta,
 }: {
-  evidence: EvidenceSummary[];
-  trialPreviewItems: TrialPreviewItem[];
+  label: string;
+  title: string | null;
+  text: string | null;
+  meta: string | null;
 }) {
   return (
-    <div className="mt-6">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">
-          Collected Structured Evidence
+    <article className="rounded-[1.4rem] border border-white/10 bg-black/20 p-4">
+      <p className="text-[10px] uppercase tracking-[0.3em] text-amber-100/70">{label}</p>
+      {title && text ? (
+        <>
+          <h3 className="mt-3 text-base font-semibold text-white">{title}</h3>
+          <p className="mt-2 text-sm leading-6 text-stone-300">{excerpt(text, 150)}</p>
+          {meta ? (
+            <p className="mt-3 text-xs uppercase tracking-[0.24em] text-stone-400">{meta}</p>
+          ) : null}
+        </>
+      ) : (
+        <p className="mt-3 text-sm leading-6 text-stone-400">
+          No strong evidence stands out yet.
         </p>
-        <span className="text-xs uppercase tracking-[0.25em] text-stone-400">
-          {evidence.length} items
-        </span>
-      </div>
-
-      <div className="mt-4 space-y-4">
-        {evidence.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-white/15 p-5 text-sm text-stone-400">
-            No structured evidence collected from NPC reactions yet.
-          </div>
-        ) : (
-          evidence.map((item) => {
-            const preview = trialPreviewItems.find((previewItem) => previewItem.memory_id === item.memory_id);
-
-            return (
-              <article
-                key={item.memory_id}
-                className="rounded-3xl border border-white/10 bg-white/5 p-4"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-                    {item.type}
-                  </span>
-                  <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-                    reliability {Math.round(item.reliability * 100)}%
-                  </span>
-                  <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-                    relevance {Math.round(item.relevance * 100)}%
-                  </span>
-                </div>
-                <h3 className="mt-3 text-lg font-semibold text-white">{item.title}</h3>
-                <dl className="mt-4 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
-                  <div>
-                    <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-                      Memory Ref
-                    </dt>
-                    <dd className="mt-1">{item.memory_id}</dd>
-                  </div>
-                  {preview ? (
-                    <div>
-                      <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-                        Trial Preview
-                      </dt>
-                      <dd className="mt-1">{preview.label}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </article>
-            );
-          })
-        )}
-      </div>
-    </div>
+      )}
+    </article>
   );
 }
 
 function StructuredReactionSummary({
   reaction,
 }: {
-  reaction: StructuredNPCReaction;
+  reaction: StructuredNpcReaction;
 }) {
   return (
-    <article className="mt-6 rounded-3xl border border-emerald-200/15 bg-emerald-400/10 p-5">
-      <p className="text-sm uppercase tracking-[0.25em] text-emerald-100/75">
+    <article className="rounded-[1.5rem] border border-emerald-200/15 bg-emerald-400/10 p-4">
+      <p className="text-[10px] uppercase tracking-[0.3em] text-emerald-100/75">
         Latest NPC Reaction
       </p>
-      <p className="mt-3 text-base leading-7 text-stone-100">{reaction.dialogue}</p>
-      <div className="mt-4 flex flex-wrap gap-2">
+      <p className="mt-3 text-sm leading-7 text-stone-100">{reaction.dialogue}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
         <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
           tone {reaction.tone}
         </span>
@@ -411,20 +133,7 @@ function StructuredReactionSummary({
           legal risk {reaction.legal_risk_delta >= 0 ? "+" : ""}
           {reaction.legal_risk_delta}
         </span>
-        {reaction.route_unlocks?.length ? (
-          <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
-            routes {reaction.route_unlocks.join(" / ")}
-          </span>
-        ) : null}
       </div>
-      {reaction.evidence.length ? (
-        <p className="mt-4 text-sm leading-6 text-stone-200">
-          New evidence: {reaction.evidence.map((item) => item.title).join(", ")}
-        </p>
-      ) : null}
-      {reaction.explanation?.public_reason ? (
-        <p className="mt-3 text-sm leading-6 text-stone-300">{reaction.explanation.public_reason}</p>
-      ) : null}
     </article>
   );
 }
@@ -433,7 +142,6 @@ export function EvidencePanel({
   headline,
   overviewText,
   retrievedEvidence,
-  npcReactions = null,
   evidenceSource,
   reactionSource = null,
   evidenceDebug = null,
@@ -443,21 +151,85 @@ export function EvidencePanel({
   latestStructuredReaction = null,
   trialPreviewItems = [],
 }: EvidencePanelProps) {
+  const [showArchive, setShowArchive] = useState(false);
+
+  const newestEvidence =
+    [...retrievedEvidence].sort((left, right) => {
+      const dayDelta = right.metadata.day - left.metadata.day;
+      if (dayDelta !== 0) {
+        return dayDelta;
+      }
+
+      return right.reliability - left.reliability;
+    })[0] ?? null;
+  const strongestEvidence =
+    [...retrievedEvidence].sort((left, right) => right.reliability - left.reliability)[0] ?? null;
+  const strongestStructuredEvidence =
+    [...collectedEvidence].sort((left, right) => right.reliability - left.reliability)[0] ?? null;
+
   return (
-    <section className="panel panel-glow rounded-3xl p-6 shadow-panel">
-      <div className="mb-6">
-        <p className="text-xs uppercase tracking-[0.35em] text-amber-100/70">
-          {showDeveloperDetails ? "NPC Access / Retrieved Evidence" : "Evidence Ledger"}
-        </p>
-        <h2 className="font-display mt-3 text-3xl text-parchment">{headline}</h2>
+    <section className="space-y-4">
+      <article className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+        <p className="text-[10px] uppercase tracking-[0.3em] text-amber-100/70">Overview</p>
+        <h3 className="font-display mt-3 text-3xl text-parchment">{headline}</h3>
+        <p className="mt-3 text-sm leading-7 text-stone-200">{overviewText}</p>
+      </article>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SummaryCard
+          label="Retrieved"
+          value={`${retrievedEvidence.length}`}
+          note="Active evidence in the current stack."
+        />
+        <SummaryCard
+          label="Structured"
+          value={`${collectedEvidence.length}`}
+          note="NPC evidence summaries collected so far."
+        />
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">Overview</p>
-            <p className="mt-3 text-base leading-7 text-stone-200">{overviewText}</p>
-          </div>
+      <EvidenceSpotlight
+        label="Newest Evidence"
+        title={newestEvidence?.title ?? null}
+        text={newestEvidence?.text ?? null}
+        meta={
+          newestEvidence
+            ? `Day ${newestEvidence.metadata.day} • ${newestEvidence.metadata.location}`
+            : null
+        }
+      />
+      <EvidenceSpotlight
+        label="Strongest Evidence"
+        title={strongestEvidence?.title ?? strongestStructuredEvidence?.title ?? null}
+        text={
+          strongestEvidence?.text ??
+          (strongestStructuredEvidence
+            ? `Reliability ${Math.round(strongestStructuredEvidence.reliability * 100)}% • relevance ${Math.round(strongestStructuredEvidence.relevance * 100)}%.`
+            : null)
+        }
+        meta={
+          strongestEvidence
+            ? `Reliability ${Math.round(strongestEvidence.reliability * 100)}%`
+            : strongestStructuredEvidence
+              ? strongestStructuredEvidence.type
+              : null
+        }
+      />
+
+      {latestStructuredReaction ? (
+        <StructuredReactionSummary reaction={latestStructuredReaction} />
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() => setShowArchive((previous) => !previous)}
+        className="text-xs uppercase tracking-[0.3em] text-amber-100/75 transition hover:text-amber-50"
+      >
+        {showArchive ? "Hide Evidence Archive" : "View Evidence Archive"}
+      </button>
+
+      {showArchive ? (
+        <div className="space-y-4">
           {showDeveloperDetails ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <SourceBadge
@@ -474,39 +246,78 @@ export function EvidencePanel({
               ) : null}
             </div>
           ) : null}
-        </div>
-      </div>
 
-      <EvidenceList
-        title={npcReactions ? "Active Memory Evidence" : "Retrieved Evidence"}
-        evidence={retrievedEvidence}
-        emptyText="No evidence is active yet."
-        showDeveloperDetails={showDeveloperDetails}
-      />
-
-      {latestStructuredReaction ? (
-        <StructuredReactionSummary reaction={latestStructuredReaction} />
-      ) : null}
-
-      <StructuredEvidenceNotebook
-        evidence={collectedEvidence}
-        trialPreviewItems={trialPreviewItems}
-      />
-
-      {npcReactions ? (
-        <div className="mt-6 space-y-5">
-          <div>
-            <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">
-              Day 8 NPC Reactions
-            </p>
-            <p className="mt-2 text-sm leading-6 text-stone-300">
-              Each NPC applies its own visibility, type, and reliability rules to the
-              same active memory stack.
-            </p>
+          <div className="space-y-3">
+            {retrievedEvidence.length === 0 ? (
+              <div className="rounded-[1.5rem] border border-dashed border-white/15 p-4 text-sm leading-6 text-stone-400">
+                No evidence is active yet.
+              </div>
+            ) : (
+              retrievedEvidence.map((memory) => (
+                <article
+                  key={memory.memoryId}
+                  className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                      {memory.sourceType.replace("_", " ")}
+                    </span>
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                      reliability {Math.round(memory.reliability * 100)}%
+                    </span>
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                      {memory.visibility}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-base font-semibold text-white">{memory.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-stone-300">{memory.text}</p>
+                  <p className="mt-3 text-xs uppercase tracking-[0.24em] text-stone-400">
+                    Day {memory.metadata.day} • {memory.metadata.location}
+                  </p>
+                </article>
+              ))
+            )}
           </div>
-          {npcReactions.map((reaction) => (
-            <NpcReactionCard key={reaction.profile.id} reaction={reaction} />
-          ))}
+
+          <div className="space-y-3">
+            {collectedEvidence.length === 0 ? (
+              <div className="rounded-[1.5rem] border border-dashed border-white/15 p-4 text-sm leading-6 text-stone-400">
+                No structured evidence collected from NPC reactions yet.
+              </div>
+            ) : (
+              collectedEvidence.map((item) => {
+                const preview = trialPreviewItems.find(
+                  (previewItem) => previewItem.memory_id === item.memory_id
+                );
+
+                return (
+                  <article
+                    key={item.memory_id}
+                    className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                        {item.type}
+                      </span>
+                      <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                        reliability {Math.round(item.reliability * 100)}%
+                      </span>
+                      <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                        relevance {Math.round(item.relevance * 100)}%
+                      </span>
+                    </div>
+                    <h3 className="mt-3 text-base font-semibold text-white">{item.title}</h3>
+                    <p className="mt-3 text-xs uppercase tracking-[0.24em] text-stone-400">
+                      {item.memory_id}
+                    </p>
+                    {preview ? (
+                      <p className="mt-2 text-sm leading-6 text-stone-300">{preview.label}</p>
+                    ) : null}
+                  </article>
+                );
+              })
+            )}
+          </div>
         </div>
       ) : null}
     </section>
