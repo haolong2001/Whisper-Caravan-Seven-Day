@@ -174,6 +174,7 @@ export function createInitialGameState(): GameState {
     npcPriceModifiers: {},
     npcQuestAvailability: {},
     flags: [],
+    appliedNpcReactionKeys: [],
     sceneChoices: {},
     sceneStatus: initialSceneStatus,
   };

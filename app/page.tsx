@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DayTracker } from "@/components/DayTracker";
 import { EvidencePanel } from "@/components/EvidencePanel";
 import { GameScene } from "@/components/GameScene";
@@ -8,11 +8,20 @@ import { MemoryCollapsePanel } from "@/components/MemoryCollapsePanel";
 import { MemoryPanel } from "@/components/MemoryPanel";
 import { StatusPanel } from "@/components/StatusPanel";
 import { TrialPanel } from "@/components/TrialPanel";
-import { ChoiceId, GameState, RetrievedEvidence, RetrievalDebug } from "@/lib/types";
+import {
+  ChoiceId,
+  GameState,
+  RetrievedEvidence,
+  RetrievalDebug,
+  TrialPreviewItem,
+} from "@/lib/types";
 import { createInitialGameState, initialNpcResponse } from "@/lib/mockData";
 import {
   advanceRunPhase,
   applyChoice,
+  applyNpcReaction,
+  buildStructuredNpcReactionRequest,
+  classifyCollectedEvidenceForTrialPreview,
   getActiveEvidence,
   getActiveMemories,
   getActivePublicEvidence,
@@ -23,11 +32,16 @@ import {
   getExpiredMemories,
   getMemoryCollapsePreview,
   getPhaseLabel,
+  getStructuredNpcAvailabilityForScene,
+  getStructuredNpcReactionKey,
+  hasAppliedStructuredNpcReaction,
+  markStructuredNpcReactionApplied,
 } from "@/lib/gameLogic";
+import { getNpcReactionResult } from "@/lib/reactionAdapter";
 import { ingestMemories, queryMemories } from "@/lib/retrievalAdapter";
 import { evaluateTrialResult } from "@/lib/trialLogic";
 
-const PLAYTEST_BUILD_LABEL = "Whisper Caravan v0.5 Playtest - Slice 4C";
+const PLAYTEST_BUILD_LABEL = "Whisper Caravan v0.6 Playtest - Slice 5";
 const PLAYTEST_SAVE_KEY = "whisper-caravan-v0.5-playtest-save";
 const PLAYTEST_SAVE_VERSION = 2;
 
@@ -112,7 +126,11 @@ export default function Home() {
   const [evidenceSource, setEvidenceSource] = useState<"backend" | "local">("local");
   const [evidenceDebug, setEvidenceDebug] = useState<RetrievalDebug | null>(null);
   const [backendNotice, setBackendNotice] = useState<string | null>(null);
+  const [reactionNotice, setReactionNotice] = useState<string | null>(null);
+  const [reactionSource, setReactionSource] = useState<"backend" | "local" | null>(null);
+  const [reactionLoading, setReactionLoading] = useState(false);
   const [showDeveloperDetails, setShowDeveloperDetails] = useState(false);
+  const pendingReactionKeyRef = useRef<string | null>(null);
   const isDeveloperMode = process.env.NODE_ENV !== "production";
 
   const currentScene = getCurrentScene(gameState);
@@ -162,6 +180,14 @@ export default function Home() {
           : "Continue";
   const actionDisabled = isLoopPhase ? !currentChoiceRecord : false;
   const savedAtLabel = formatSavedAt(lastSavedAt);
+  const npcAvailability = isLoopPhase ? getStructuredNpcAvailabilityForScene(currentScene) : null;
+  const npcInteractionApplied =
+    currentScene && npcAvailability
+      ? hasAppliedStructuredNpcReaction(gameState, currentScene.id, npcAvailability.npcId)
+      : false;
+  const trialPreviewItems: TrialPreviewItem[] = classifyCollectedEvidenceForTrialPreview(
+    gameState.collectedEvidence
+  );
 
   useEffect(() => {
     const savedRun = readSavedRun();
@@ -292,6 +318,8 @@ export default function Home() {
     setSessionId(createSessionId());
     setHasStarted(true);
     setBackendNotice(null);
+    setReactionNotice(null);
+    setReactionSource(null);
   };
 
   const handleContinueRun = () => {
@@ -307,6 +335,8 @@ export default function Home() {
     setSessionId(createSessionId());
     setHasStarted(true);
     setBackendNotice(null);
+    setReactionNotice(null);
+    setReactionSource(null);
   };
 
   const handleClearSave = () => {
@@ -320,6 +350,53 @@ export default function Home() {
     setLastSavedAt(null);
     setHasStarted(false);
     setBackendNotice(null);
+    setReactionNotice(null);
+    setReactionSource(null);
+  };
+
+  const handleNpcInteraction = async () => {
+    if (!currentScene || !npcAvailability || reactionLoading || npcInteractionApplied) {
+      return;
+    }
+
+    const reactionKey = getStructuredNpcReactionKey(currentScene.id, npcAvailability.npcId);
+
+    if (pendingReactionKeyRef.current === reactionKey) {
+      return;
+    }
+
+    pendingReactionKeyRef.current = reactionKey;
+    setReactionLoading(true);
+    setReactionNotice(null);
+
+    try {
+      const request = buildStructuredNpcReactionRequest(
+        gameState,
+        currentScene,
+        sessionId,
+        npcAvailability
+      );
+      const result = await getNpcReactionResult(request);
+
+      setReactionSource(result.source);
+      setReactionNotice(
+        result.source === "backend"
+          ? `${npcAvailability.name} responded using backend-assisted retrieval.`
+          : `${npcAvailability.name} responded using deterministic local fallback.`
+      );
+      setGameState((previousState) =>
+        markStructuredNpcReactionApplied(
+          applyNpcReaction(previousState, result.data),
+          currentScene.id,
+          npcAvailability.npcId
+        )
+      );
+    } catch {
+      setReactionNotice("The witness could not be reached safely. The current scene remains playable.");
+    } finally {
+      pendingReactionKeyRef.current = null;
+      setReactionLoading(false);
+    }
   };
 
   if (!hasHydrated) {
@@ -517,6 +594,16 @@ export default function Home() {
             sceneStatus={gameState.sceneStatus}
             options={currentScene?.choices ?? []}
             choicesLocked={Boolean(currentChoiceRecord) || !currentScene}
+            npcAvailability={npcAvailability}
+            latestNpcReaction={gameState.latestNpcReaction ?? null}
+            npcInteractionDisabled={!currentScene || npcInteractionApplied}
+            npcInteractionLoading={reactionLoading}
+            npcInteractionNotice={
+              npcInteractionApplied
+                ? "This NPC interaction has already been used for the current event."
+                : reactionNotice
+            }
+            onInteractWithNpc={handleNpcInteraction}
             emptyStateText="This checkpoint does not take a new scene choice. Review the collapse preview and continue when ready."
             onSelectChoice={handleChoiceSelect}
           />
@@ -538,6 +625,10 @@ export default function Home() {
             retrievedEvidence={retrievedEvidence}
             evidenceSource={evidenceSource}
             evidenceDebug={evidenceDebug}
+            collectedEvidence={gameState.collectedEvidence ?? []}
+            latestStructuredReaction={gameState.latestNpcReaction ?? null}
+            trialPreviewItems={trialPreviewItems}
+            reactionSource={reactionSource}
             showDeveloperDetails={showDeveloperDetails}
           />
         )}

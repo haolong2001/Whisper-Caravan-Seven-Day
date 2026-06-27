@@ -31,6 +31,12 @@ export type StoryNpcId =
   | "crowBrokerNarrator"
   | "bearJudgeAuthority";
 
+export type StructuredNpcId =
+  | "fox_ledger_master"
+  | "crow_broker"
+  | "camp_healer"
+  | "village_apothecary";
+
 export type RouteTag = "truth" | "merchant" | "rumor" | "failure";
 export type RouteUnlock = RouteTag;
 
@@ -246,6 +252,29 @@ export type NPCReaction = ReactionEffectPatch & {
   };
 };
 
+export type StructuredNpcAvailability = {
+  npcId: StructuredNpcId;
+  name: string;
+  roleLabel: string;
+  actionLabel: string;
+};
+
+export type TrialPreviewBucket =
+  | "strong_record"
+  | "court_support"
+  | "necessity_testimony"
+  | "rumor_needs_support";
+
+export type TrialPreviewItem = {
+  memory_id: string;
+  title: string;
+  type: EvidenceSummary["type"];
+  bucket: TrialPreviewBucket;
+  label: string;
+  reliability: number;
+  relevance: number;
+};
+
 export type BackendMemoryRecord = {
   memoryId: string;
   title: string;
@@ -373,6 +402,7 @@ export type GameState = {
   npcQuestAvailability?: Record<string, boolean>;
   flags?: string[];
   latestNpcReaction?: NPCReaction;
+  appliedNpcReactionKeys?: string[];
   sceneChoices: Partial<Record<string, SceneChoiceRecord>>;
   sceneStatus: string;
 };

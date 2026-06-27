@@ -32,6 +32,10 @@ v0.6 slices 2 through 4 are now in place:
 
 The backend now exposes a structured `POST /npc/reaction` route for the four first-pass v0.6 NPCs, can use the existing session-based retrieval stack when a structured reaction request includes a session id, and keeps all gameplay deltas deterministic even when an optional dialogue/tone provider boundary is enabled. Frontend-only local play still works with no backend and no API key.
 
+v0.6 slice 5 is now in place:
+
+The browser UI now exposes a player-facing structured NPC reaction loop on relevant event cards. The current run passes its real `sessionId` into structured reaction requests, backend-enabled runs can use retrieval-backed reactions when available, frontend-only fallback still works, and collected structured evidence plus a lightweight trial preview are now visible in the playtest UI without rewriting Bear Court scoring.
+
 ## Current v0.6 Goal
 
 Introduce a structured NPC reaction interface in small deterministic slices:
@@ -64,21 +68,23 @@ Read `docs/GAME_SYSTEMS.md` when changing:
 
 ## Last Completed
 
-v0.6 slices 2 through 4:
+v0.6 slice 5:
 
-- slice 2: backend fake structured endpoint
-- slice 3: retrieval-backed structured reaction
-- slice 4: optional dialogue/tone provider boundary with deterministic fallback
+- event-card NPC availability helper
+- player-facing structured reaction panel
+- `sessionId` bridge into structured reaction requests
+- deterministic reaction application with duplicate-use guard
+- collected evidence notebook and light trial preview
 
 Verification on June 27, 2026:
 
 - `npm run test:timeline` passes
-- `node --test frontend-tests/reaction-layer.test.mjs` passes
+- `node --test frontend-tests/reaction-layer.test.mjs frontend-tests/structured-reaction-ui.test.mjs` passes
 - `.venv/bin/python -m unittest backend.tests.test_structured_reaction backend.tests.test_rules backend.tests.test_store backend.tests.test_retrieval` passes
 - `PYTHONPYCACHEPREFIX=/private/tmp/whisper-caravan-pycache .venv/bin/python -m compileall backend/app backend/tests` passes
 - `npm run build` passes
 
-Current repo behavior after v0.6 slice 4:
+Current repo behavior after v0.6 slice 5:
 
 - the game now keeps a 26-card authored pool in `lib/mockData.ts`
 - each run deterministically selects a route-dependent subset of fourteen cards
@@ -117,12 +123,16 @@ Current repo behavior after v0.6 slice 4:
   - failure pressure favors contradiction, suspicion, and pressure cards
 - frontend simulations now prove route-dependent fourteen-day paths still reach the trial and can feed all five endings through deterministic fixtures
 - the browser UI now includes:
-  - visible build label: `Whisper Caravan v0.5 Playtest - Slice 4C`
+  - visible build label: `Whisper Caravan v0.6 Playtest - Slice 5`
   - title screen with Start, Continue, Restart, and Clear Save flow
   - local save persistence in browser `localStorage`
   - deterministic restore of the current run after refresh
   - ending presentation that shows ending id and title and asks for screenshot/feedback
   - developer/debug metadata hidden by default behind a dev-only toggle
+  - a structured NPC interaction panel on relevant loop scenes
+  - lightweight latest-reaction feedback in the event card
+  - a collected structured evidence notebook in the evidence panel
+  - a non-authoritative trial preview label for collected structured evidence
 - frontend deployment shape is now safe by default:
   - in development, frontend retrieval still defaults to `http://127.0.0.1:8000`
   - in production, the frontend does not assume a backend unless `NEXT_PUBLIC_BACKEND_URL` is set
@@ -137,6 +147,14 @@ Current repo behavior after v0.6 slice 4:
   - otherwise returns deterministic local fallback reactions
   - validates and clamps structured fields before they are applied
   - posts to `/npc/reaction` using the structured v0.6 request body, including optional `session_id` when a caller provides it
+- the browser now builds and sends structured reaction requests with:
+  - `npc_id`
+  - current run `sessionId`
+  - current day
+  - route hint when available
+  - scene-derived `player_input`
+  - known memory ids
+  - compact game state summary
 - the backend `POST /npc/reaction` route now:
   - accepts the structured v0.6 request shape
   - returns the structured v0.6 reaction shape
@@ -149,7 +167,7 @@ Current repo behavior after v0.6 slice 4:
   - convert accepted memories into structured evidence summaries
   - populate `memory_refs` from accepted evidence
   - derive gameplay deltas from deterministic backend rules rather than generation
-  - currently require a populated backend session plus a caller-supplied `session_id`
+  - use the current browser run when the backend is enabled and the session-backed ingest loop has already populated memory state
 - optional dialogue generation boundary now exists:
   - only `dialogue`, `tone`, and optional `public_reason` may be overridden
   - invalid tone/output falls back to deterministic dialogue
@@ -213,7 +231,7 @@ Structured reaction smoke check:
 
 Recommended next slice:
 
-- v0.6 slice 5: wire collected structured evidence into the evidence notebook and deterministic trial scoring without weakening Bear Court authority
+- v0.6 slice 6: improve structured reaction UI feedback and decide how collected structured evidence should feed deterministic trial scoring without weakening Bear Court authority
 
 ## Needs Testing
 
@@ -236,12 +254,13 @@ Recommended next slice:
 - structured reaction checks:
   - manual browser smoke test that the frontend still plays end to end with no backend configured
   - manual backend-assisted smoke test of `POST /npc/reaction` with and without `session_id`
-  - integration of `getNpcReaction()` into future NPC-facing UI flow
-  - future trial wiring for `collectedEvidence` once slice 5 starts
+  - loop-scene NPC interaction flow with backend enabled and disabled
+  - confirmation that duplicate button clicks do not apply trust/legal risk twice
+  - future deterministic trial wiring for `collectedEvidence`
 
 ## Drift Risks
 
 - deterministic NPC rules still exist in both `lib/gameLogic.ts` and `backend/app/rules.py`
 - route selection currently relies on deterministic scoring over tags, factions, and legal risk rather than explicit authored branch tables
 - trial score weights are preserved, but the broader pool may still need calibration after real playtest feedback
-- structured reaction retrieval is session-backed, but the browser UI does not yet invoke `getNpcReaction()` or pass the current run session id into that path
+- collected structured evidence is now visible to the player, but final Bear Court scoring still does not consume it directly

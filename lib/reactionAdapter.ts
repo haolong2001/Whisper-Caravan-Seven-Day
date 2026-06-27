@@ -6,6 +6,13 @@ import {
   RouteUnlock,
 } from "@/lib/types";
 
+type ReactionSource = "backend" | "local";
+
+type ReactionResult = {
+  data: NPCReaction;
+  source: ReactionSource;
+};
+
 const VALID_TONES: readonly NPCReactionTone[] = [
   "friendly",
   "guarded",
@@ -460,15 +467,29 @@ export function hasReactionBackendConfig() {
   return getReactionBackendUrl() !== null;
 }
 
-export async function getNpcReaction(request: ReactionRequest): Promise<NPCReaction> {
+export async function getNpcReactionResult(request: ReactionRequest): Promise<ReactionResult> {
   if (!hasReactionBackendConfig()) {
-    return getLocalFallbackNpcReaction(request);
+    return {
+      data: getLocalFallbackNpcReaction(request),
+      source: "local",
+    };
   }
 
   try {
     const response = await postJson<unknown>("/npc/reaction", request);
-    return sanitizeNpcReaction(response, request);
+    return {
+      data: sanitizeNpcReaction(response, request),
+      source: "backend",
+    };
   } catch {
-    return getLocalFallbackNpcReaction(request);
+    return {
+      data: getLocalFallbackNpcReaction(request),
+      source: "local",
+    };
   }
+}
+
+export async function getNpcReaction(request: ReactionRequest): Promise<NPCReaction> {
+  const result = await getNpcReactionResult(request);
+  return result.data;
 }

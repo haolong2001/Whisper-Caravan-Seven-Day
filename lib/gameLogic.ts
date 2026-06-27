@@ -8,9 +8,10 @@ import {
   MemoryQueryRequest,
   MemoryQueryResult,
   NPCReaction,
+  ReactionRequest,
   PhaseCard,
-  RouteTag,
   RouteUnlock,
+  RouteTag,
   RunPhase,
   SceneChoiceRecord,
   GameState,
@@ -19,6 +20,9 @@ import {
   MemoryItem,
   NPCProfile,
   NpcReaction,
+  StructuredNpcAvailability,
+  StructuredNpcId,
+  TrialPreviewItem,
   RetrievedEvidence,
   StoryScene,
 } from "@/lib/types";
@@ -1279,4 +1283,221 @@ export function applyNpcReaction(gameState: GameState, reaction: NPCReaction): G
     flags: mergeUniqueStrings(gameState.flags, reaction.flags_set),
     latestNpcReaction: reaction,
   };
+}
+
+const STRUCTURED_NPC_AVAILABILITY: Record<StructuredNpcId, StructuredNpcAvailability> = {
+  fox_ledger_master: {
+    npcId: "fox_ledger_master",
+    name: "Fox Ledger-Master",
+    roleLabel: "Fox Market record keeper",
+    actionLabel: "Ask about evidence",
+  },
+  crow_broker: {
+    npcId: "crow_broker",
+    name: "Crow Broker",
+    roleLabel: "Public narrative broker",
+    actionLabel: "Ask what they remember",
+  },
+  camp_healer: {
+    npcId: "camp_healer",
+    name: "Camp Healer",
+    roleLabel: "Refugee camp witness",
+    actionLabel: "Talk to witness",
+  },
+  village_apothecary: {
+    npcId: "village_apothecary",
+    name: "Village Apothecary",
+    roleLabel: "Village medicine witness",
+    actionLabel: "Ask about records",
+  },
+};
+
+function scoreStructuredNpcForScene(scene: StoryScene, npcId: StructuredNpcId) {
+  const text = [scene.title, scene.description, scene.location, ...(scene.routeTags ?? []), ...(scene.involvedNpcIds ?? [])]
+    .join(" ")
+    .toLowerCase();
+  const routeTags = new Set(scene.routeTags ?? []);
+  const involvedNpcIds = new Set(scene.involvedNpcIds ?? []);
+
+  switch (npcId) {
+    case "fox_ledger_master":
+      return (
+        (scene.location === "Fox Market" ? 5 : 0) +
+        (routeTags.has("merchant") ? 4 : 0) +
+        (involvedNpcIds.has("foxLedgerMaster") ? 5 : 0) +
+        (text.includes("fox") ? 2 : 0) +
+        (text.includes("ledger") ? 3 : 0) +
+        (text.includes("contract") ? 3 : 0) +
+        (text.includes("receipt") ? 3 : 0) +
+        (text.includes("merchant") ? 2 : 0)
+      );
+    case "crow_broker":
+      return (
+        (routeTags.has("rumor") ? 4 : 0) +
+        (involvedNpcIds.has("crowBrokerNarrator") ? 5 : 0) +
+        (text.includes("crow") ? 3 : 0) +
+        (text.includes("rumor") ? 3 : 0) +
+        (text.includes("song") ? 2 : 0) +
+        (text.includes("public") ? 2 : 0) +
+        (text.includes("narrative") ? 2 : 0)
+      );
+    case "camp_healer":
+      return (
+        (scene.location === "River Refugee Camp" ? 5 : 0) +
+        (routeTags.has("truth") ? 1 : 0) +
+        (routeTags.has("rumor") ? 1 : 0) +
+        (involvedNpcIds.has("campHealer") ? 5 : 0) +
+        (text.includes("refugee") ? 3 : 0) +
+        (text.includes("camp") ? 3 : 0) +
+        (text.includes("medical") ? 3 : 0) +
+        (text.includes("fever") ? 3 : 0) +
+        (text.includes("necessity") ? 2 : 0) +
+        (text.includes("witness") ? 2 : 0)
+      );
+    case "village_apothecary":
+      return (
+        (scene.location === "Deer Village" ? 5 : 0) +
+        (routeTags.has("truth") ? 3 : 0) +
+        (involvedNpcIds.has("villageApothecary") ? 5 : 0) +
+        (text.includes("deer") ? 2 : 0) +
+        (text.includes("village") ? 2 : 0) +
+        (text.includes("medicine") ? 3 : 0) +
+        (text.includes("inventory") ? 3 : 0) +
+        (text.includes("apothecary") ? 3 : 0) +
+        (text.includes("truth") ? 1 : 0)
+      );
+    default:
+      return 0;
+  }
+}
+
+export function getStructuredNpcAvailabilityForScene(
+  scene: StoryScene | null
+): StructuredNpcAvailability | null {
+  if (!scene) {
+    return null;
+  }
+
+  const ranked = (Object.keys(STRUCTURED_NPC_AVAILABILITY) as StructuredNpcId[])
+    .map((npcId) => ({
+      npcId,
+      score: scoreStructuredNpcForScene(scene, npcId),
+    }))
+    .filter((candidate) => candidate.score >= 5)
+    .sort((left, right) => right.score - left.score || compareText(left.npcId, right.npcId));
+
+  if (ranked.length === 0) {
+    return null;
+  }
+
+  return STRUCTURED_NPC_AVAILABILITY[ranked[0].npcId];
+}
+
+export function getStructuredNpcReactionKey(sceneId: string, npcId: StructuredNpcId) {
+  return `${sceneId}:${npcId}`;
+}
+
+export function hasAppliedStructuredNpcReaction(
+  gameState: GameState,
+  sceneId: string,
+  npcId: StructuredNpcId
+) {
+  const key = getStructuredNpcReactionKey(sceneId, npcId);
+  return gameState.appliedNpcReactionKeys?.includes(key) ?? false;
+}
+
+export function markStructuredNpcReactionApplied(
+  gameState: GameState,
+  sceneId: string,
+  npcId: StructuredNpcId
+) {
+  const key = getStructuredNpcReactionKey(sceneId, npcId);
+
+  if (gameState.appliedNpcReactionKeys?.includes(key)) {
+    return gameState;
+  }
+
+  return {
+    ...gameState,
+    appliedNpcReactionKeys: [...(gameState.appliedNpcReactionKeys ?? []), key],
+  };
+}
+
+export function getRouteHintForScene(
+  gameState: GameState,
+  scene: StoryScene | null
+): RouteUnlock | undefined {
+  const sceneRoute = scene?.routeTags?.find(
+    (tag): tag is RouteUnlock =>
+      tag === "truth" || tag === "merchant" || tag === "rumor" || tag === "failure"
+  );
+
+  if (sceneRoute) {
+    return sceneRoute;
+  }
+
+  return gameState.unlockedRoutes?.[gameState.unlockedRoutes.length - 1];
+}
+
+export function buildStructuredNpcReactionRequest(
+  gameState: GameState,
+  scene: StoryScene,
+  sessionId: string,
+  availability: StructuredNpcAvailability
+): ReactionRequest {
+  const route = getRouteHintForScene(gameState, scene);
+
+  return {
+    npc_id: availability.npcId,
+    session_id: sessionId,
+    player_input: `${availability.actionLabel}: ${scene.title} at ${scene.location}. ${scene.description}`,
+    day: scene.day,
+    route,
+    known_memory_ids: gameState.memories.map((memory) => memory.id),
+    game_state_summary: {
+      trust: gameState.npcTrust,
+      legal_risk: gameState.resources.legalRisk,
+      silver: gameState.resources.silver,
+      flags: gameState.flags ?? [],
+      unlocked_routes: gameState.unlockedRoutes ?? [],
+    },
+  };
+}
+
+export function classifyCollectedEvidenceForTrialPreview(
+  evidence: EvidenceSummary[] | undefined
+): TrialPreviewItem[] {
+  return (evidence ?? []).map((item) => {
+    switch (item.type) {
+      case "record":
+      case "receipt":
+      case "inventory":
+        return {
+          ...item,
+          bucket: "strong_record",
+          label: "Strong record",
+        };
+      case "law":
+        return {
+          ...item,
+          bucket: "court_support",
+          label: "Likely useful in court",
+        };
+      case "medical":
+      case "testimony":
+        return {
+          ...item,
+          bucket: "necessity_testimony",
+          label: "Necessity testimony",
+        };
+      case "rumor":
+      case "contradiction":
+      default:
+        return {
+          ...item,
+          bucket: "rumor_needs_support",
+          label: "Rumor; needs support",
+        };
+    }
+  });
 }

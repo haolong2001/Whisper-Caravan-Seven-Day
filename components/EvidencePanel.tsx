@@ -1,8 +1,11 @@
 import {
+  EvidenceSummary,
   EvaluatedEvidence,
+  NPCReaction as StructuredNPCReaction,
   NpcReaction,
   RetrievedEvidence,
   RetrievalDebug,
+  TrialPreviewItem,
 } from "@/lib/types";
 
 type EvidencePanelProps = {
@@ -15,6 +18,9 @@ type EvidencePanelProps = {
   evidenceDebug?: RetrievalDebug | null;
   reactionDebug?: RetrievalDebug | null;
   showDeveloperDetails?: boolean;
+  collectedEvidence?: EvidenceSummary[];
+  latestStructuredReaction?: StructuredNPCReaction | null;
+  trialPreviewItems?: TrialPreviewItem[];
 };
 
 function SourceBadge({
@@ -313,6 +319,116 @@ function NpcReactionCard({ reaction }: { reaction: NpcReaction }) {
   );
 }
 
+function StructuredEvidenceNotebook({
+  evidence,
+  trialPreviewItems,
+}: {
+  evidence: EvidenceSummary[];
+  trialPreviewItems: TrialPreviewItem[];
+}) {
+  return (
+    <div className="mt-6">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">
+          Collected Structured Evidence
+        </p>
+        <span className="text-xs uppercase tracking-[0.25em] text-stone-400">
+          {evidence.length} items
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-4">
+        {evidence.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-white/15 p-5 text-sm text-stone-400">
+            No structured evidence collected from NPC reactions yet.
+          </div>
+        ) : (
+          evidence.map((item) => {
+            const preview = trialPreviewItems.find((previewItem) => previewItem.memory_id === item.memory_id);
+
+            return (
+              <article
+                key={item.memory_id}
+                className="rounded-3xl border border-white/10 bg-white/5 p-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                    {item.type}
+                  </span>
+                  <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                    reliability {Math.round(item.reliability * 100)}%
+                  </span>
+                  <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+                    relevance {Math.round(item.relevance * 100)}%
+                  </span>
+                </div>
+                <h3 className="mt-3 text-lg font-semibold text-white">{item.title}</h3>
+                <dl className="mt-4 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+                      Memory Ref
+                    </dt>
+                    <dd className="mt-1">{item.memory_id}</dd>
+                  </div>
+                  {preview ? (
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+                        Trial Preview
+                      </dt>
+                      <dd className="mt-1">{preview.label}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </article>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StructuredReactionSummary({
+  reaction,
+}: {
+  reaction: StructuredNPCReaction;
+}) {
+  return (
+    <article className="mt-6 rounded-3xl border border-emerald-200/15 bg-emerald-400/10 p-5">
+      <p className="text-sm uppercase tracking-[0.25em] text-emerald-100/75">
+        Latest NPC Reaction
+      </p>
+      <p className="mt-3 text-base leading-7 text-stone-100">{reaction.dialogue}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+          tone {reaction.tone}
+        </span>
+        <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+          trust {reaction.trust_delta >= 0 ? "+" : ""}
+          {reaction.trust_delta}
+        </span>
+        <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+          legal risk {reaction.legal_risk_delta >= 0 ? "+" : ""}
+          {reaction.legal_risk_delta}
+        </span>
+        {reaction.route_unlocks?.length ? (
+          <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-stone-300">
+            routes {reaction.route_unlocks.join(" / ")}
+          </span>
+        ) : null}
+      </div>
+      {reaction.evidence.length ? (
+        <p className="mt-4 text-sm leading-6 text-stone-200">
+          New evidence: {reaction.evidence.map((item) => item.title).join(", ")}
+        </p>
+      ) : null}
+      {reaction.explanation?.public_reason ? (
+        <p className="mt-3 text-sm leading-6 text-stone-300">{reaction.explanation.public_reason}</p>
+      ) : null}
+    </article>
+  );
+}
+
 export function EvidencePanel({
   headline,
   overviewText,
@@ -323,6 +439,9 @@ export function EvidencePanel({
   evidenceDebug = null,
   reactionDebug = null,
   showDeveloperDetails = false,
+  collectedEvidence = [],
+  latestStructuredReaction = null,
+  trialPreviewItems = [],
 }: EvidencePanelProps) {
   return (
     <section className="panel panel-glow rounded-3xl p-6 shadow-panel">
@@ -363,6 +482,15 @@ export function EvidencePanel({
         evidence={retrievedEvidence}
         emptyText="No evidence is active yet."
         showDeveloperDetails={showDeveloperDetails}
+      />
+
+      {latestStructuredReaction ? (
+        <StructuredReactionSummary reaction={latestStructuredReaction} />
+      ) : null}
+
+      <StructuredEvidenceNotebook
+        evidence={collectedEvidence}
+        trialPreviewItems={trialPreviewItems}
       />
 
       {npcReactions ? (
