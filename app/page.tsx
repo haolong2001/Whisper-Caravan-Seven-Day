@@ -159,7 +159,7 @@ function TitleCard({
                   Seven-Day Memory
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-200 sm:text-base">
-                  A warm road, a thinning memory, and a court that arrives whether the truth is ready or not.
+                  Some memories fade. Some become evidence.
                 </p>
               </div>
             </div>
@@ -170,12 +170,12 @@ function TitleCard({
                   Caravan Ledger
                 </p>
                 <h2 className="font-display mt-4 text-3xl text-parchment sm:text-4xl">
-                  {hasSavedRun ? "Continue the road already taken" : "Begin a fourteen-day road to Bear Court"}
+                  {hasSavedRun ? "Continue the road already taken" : "They say you did something wrong"}
                 </h2>
                 <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base">
                   {hasSavedRun
                     ? `Saved ${savedAtLabel ?? "earlier"} on Day ${day} during ${phaseLabel} at ${location}.`
-                    : "Each day offers one decisive event. Memories fade, evidence hardens, and the final judgment waits at the end of the road."}
+                    : "You have 14 days before Bear Court.\nChoose who to trust, what to record,\nand what the world will remember."}
                 </p>
               </div>
 
