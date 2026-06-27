@@ -1,39 +1,36 @@
 # Whisper Caravan
 
-![Whisper Caravan 初始界面](public/images/title-screen.png)
+![Whisper Caravan title screen](public/images/title-screen.png)
 
-**你偷走了鹿村的药。**
+**Whisper Caravan** is a narrative choice game about memory, rumor, survival, and judgment.
 
-至少，所有人都是这么说的。
+They say you did something wrong.
+You have **14 days** before Bear Court arrives.
 
-在 **Whisper Caravan** 中，你将扮演一支被流言追赶的旅队，在鹿村、狐市、难民营与熊法庭之间穿行。  
-每一天，你都必须做出选择：相信谁、帮助谁、隐瞒什么，又要把什么变成证据。
+On the road, you will pass through Deer Village, Fox Market, the refugee camp, the Crow Brokers, and Bear Court. Each day brings one decisive event. Every choice changes who you meet, what evidence you leave behind, and how NPCs remember you.
 
-这不是一个所有人都会记得你的世界。
+But this world is cursed.
 
-每过 **7 天**，NPC 对短期事件的记忆会逐渐消失。  
-昨日的善意可能无人记得，临时的证词可能失去效力。  
-但有些东西会留下：记录、契约、流言，以及被人们反复传唱的歌谣。
+NPCs keep only **seven days** of direct memory. A kindness may fade. A witness may forget. Yet records, contracts, rumors, and songs survive — and become the way the world remembers you.
 
-14 天之后，你将站上熊法庭。  
-你能否证明自己？  
-还是会被世界记成另一个版本的故事？
+## Play Online
 
-## 在线游玩
+[Play Whisper Caravan](https://whisper-caravan-seven-day.vercel.app/)
 
-[开始游玩 Whisper Caravan](https://whisper-caravan-seven-day.vercel.app/)
+## Highlights
 
-## 游戏特色
+* **14-day narrative run** with one major event per day
+* **Route-dependent events** shaped by your choices
+* **NPC attitude changes** based on trust, risk, and evidence
+* **Seven-day memory system** where short-term memories fade
+* **Evidence system** built around records, contracts, rumors, and songs
+* **Multiple endings** decided by what the world remembers
 
-- **14 天叙事流程**：每一天都是一次关键选择
-- **路线分歧事件**：不同选择会遇到不同人物、地点与真相碎片
-- **NPC 态度变化**：你的行为会改变村民、商人、流言贩子与法庭对你的看法
-- **七日记忆机制**：短期记忆会失效，但不会从世界中彻底消失
-- **证据与歌谣系统**：记录、契约、流言和歌谣会以不同方式影响最终审判
-- **多结局审判**：真相、生存、名声与风险都会决定你的结局
-
-## 本地运行
+## Run Locally
 
 ```bash
 npm install
 npm run dev
+```
+
+Then open the local URL shown in your terminal.
