@@ -175,7 +175,7 @@ function TitleCard({
                 <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base">
                   {hasSavedRun
                     ? `Saved ${savedAtLabel ?? "earlier"} on Day ${day} during ${phaseLabel} at ${location}.`
-                    : "You have 14 days before Bear Court.\nChoose who to trust, what to record,\nand what the world will remember."}
+                    : "You have 14 days before Bear Court.\nChoose who to trust, what to record,\nand what the world will remember.\n\nWarning: this world is cursed.\nNPCs keep only seven days of direct memory,\nbut records, contracts, rumors, and songs survive.\nChoose carefully, and decide how the world remembers you."}
                 </p>
               </div>
 
@@ -678,22 +678,20 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => setActiveRailTab("memory")}
-                      className={`rounded-full px-4 py-2 text-xs uppercase tracking-[0.28em] transition ${
-                        activeRailTab === "memory"
+                      className={`rounded-full px-4 py-2 text-xs uppercase tracking-[0.28em] transition ${activeRailTab === "memory"
                           ? "bg-amber-500 text-stone-950"
                           : "text-stone-300 hover:text-white"
-                      }`}
+                        }`}
                     >
                       Memory
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveRailTab("evidence")}
-                      className={`rounded-full px-4 py-2 text-xs uppercase tracking-[0.28em] transition ${
-                        activeRailTab === "evidence"
+                      className={`rounded-full px-4 py-2 text-xs uppercase tracking-[0.28em] transition ${activeRailTab === "evidence"
                           ? "bg-amber-500 text-stone-950"
                           : "text-stone-300 hover:text-white"
-                      }`}
+                        }`}
                     >
                       Evidence
                     </button>
