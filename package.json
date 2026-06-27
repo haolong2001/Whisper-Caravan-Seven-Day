@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:timeline": "node --test frontend-tests/timeline-framework.test.mjs frontend-tests/trial-scoring.test.mjs"
   },
   "dependencies": {
     "next": "^15.0.0",

@@ -14,6 +14,7 @@ type EvidencePanelProps = {
   reactionSource?: "backend" | "local" | null;
   evidenceDebug?: RetrievalDebug | null;
   reactionDebug?: RetrievalDebug | null;
+  showDeveloperDetails?: boolean;
 };
 
 function SourceBadge({
@@ -52,10 +53,12 @@ function EvidenceList({
   title,
   evidence,
   emptyText,
+  showDeveloperDetails,
 }: {
   title: string;
   evidence: RetrievedEvidence[];
   emptyText: string;
+  showDeveloperDetails: boolean;
 }) {
   return (
     <div className="mt-6">
@@ -108,16 +111,20 @@ function EvidenceList({
                   </dt>
                   <dd className="mt-1">{memory.metadata.location}</dd>
                 </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
-                    Active
-                  </dt>
-                  <dd className="mt-1">{memory.metadata.active ? "true" : "false"}</dd>
-                </div>
+                {showDeveloperDetails ? (
+                  <div>
+                    <dt className="text-xs uppercase tracking-[0.28em] text-stone-500">
+                      Active
+                    </dt>
+                    <dd className="mt-1">{memory.metadata.active ? "true" : "false"}</dd>
+                  </div>
+                ) : null}
               </dl>
-              <p className="mt-3 text-xs uppercase tracking-[0.25em] text-stone-500">
-                tags {memory.metadata.tags.join(" / ")}
-              </p>
+              {showDeveloperDetails ? (
+                <p className="mt-3 text-xs uppercase tracking-[0.25em] text-stone-500">
+                  tags {memory.metadata.tags.join(" / ")}
+                </p>
+              ) : null}
             </article>
           ))
         )}
@@ -315,12 +322,13 @@ export function EvidencePanel({
   reactionSource = null,
   evidenceDebug = null,
   reactionDebug = null,
+  showDeveloperDetails = false,
 }: EvidencePanelProps) {
   return (
     <section className="panel panel-glow rounded-3xl p-6 shadow-panel">
       <div className="mb-6">
         <p className="text-xs uppercase tracking-[0.35em] text-amber-100/70">
-          NPC Access / Retrieved Evidence
+          {showDeveloperDetails ? "NPC Access / Retrieved Evidence" : "Evidence Ledger"}
         </p>
         <h2 className="font-display mt-3 text-3xl text-parchment">{headline}</h2>
       </div>
@@ -331,20 +339,22 @@ export function EvidencePanel({
             <p className="text-sm uppercase tracking-[0.25em] text-amber-100/70">Overview</p>
             <p className="mt-3 text-base leading-7 text-stone-200">{overviewText}</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SourceBadge
-              label="Evidence Source"
-              source={evidenceSource}
-              debug={evidenceSource === "backend" ? evidenceDebug : null}
-            />
-            {reactionSource ? (
+          {showDeveloperDetails ? (
+            <div className="grid gap-3 sm:grid-cols-2">
               <SourceBadge
-                label="Reaction Source"
-                source={reactionSource}
-                debug={reactionSource === "backend" ? reactionDebug : null}
+                label="Evidence Source"
+                source={evidenceSource}
+                debug={evidenceSource === "backend" ? evidenceDebug : null}
               />
-            ) : null}
-          </div>
+              {reactionSource ? (
+                <SourceBadge
+                  label="Reaction Source"
+                  source={reactionSource}
+                  debug={reactionSource === "backend" ? reactionDebug : null}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -352,6 +362,7 @@ export function EvidencePanel({
         title={npcReactions ? "Active Memory Evidence" : "Retrieved Evidence"}
         evidence={retrievedEvidence}
         emptyText="No evidence is active yet."
+        showDeveloperDetails={showDeveloperDetails}
       />
 
       {npcReactions ? (

@@ -1,11 +1,14 @@
 import {
   BackendMemoryRecord,
   Choice,
+  CollapseCheckpoint,
   EvaluatedEvidence,
-  GameEvent,
+  GameResources,
   MemoryQueryRequest,
   MemoryQueryResult,
-  GameResources,
+  PhaseCard,
+  RunPhase,
+  SceneChoiceRecord,
   GameState,
   MemoryCollapsePreview,
   MemoryEffect,
@@ -13,15 +16,25 @@ import {
   NPCProfile,
   NpcReaction,
   RetrievedEvidence,
+  StoryScene,
 } from "@/lib/types";
-import { day8Aftermath, gameEvents, npcProfiles } from "@/lib/mockData";
+import {
+  collapseCheckpoints,
+  endingPlaceholder,
+  gameScenes,
+  npcProfiles,
+  trialPlaceholder,
+} from "@/lib/mockData";
 
-function buildMemoryTags(effect: MemoryEffect, event: GameEvent, choice: Choice) {
+type LoopPhase = Extract<RunPhase, "loop_one" | "loop_two">;
+type CollapsePhase = Extract<RunPhase, "collapse_one" | "collapse_two">;
+
+function buildMemoryTags(effect: MemoryEffect, scene: StoryScene, choice: Choice) {
   if (effect.tags?.length) {
     return effect.tags;
   }
 
-  return [event.id, choice.id, effect.type, effect.visibility, effect.evidenceRole, event.location];
+  return [scene.id, choice.id, effect.type, effect.visibility, effect.evidenceRole, scene.location];
 }
 
 export function toRetrievedEvidence(memory: MemoryItem): RetrievedEvidence {
@@ -69,6 +82,14 @@ function sortRetrievedEvidence<T extends RetrievedEvidence>(evidence: T[]) {
   return [...evidence].sort(compareEvidence);
 }
 
+function isLoopPhase(phase: RunPhase): phase is LoopPhase {
+  return phase === "loop_one" || phase === "loop_two";
+}
+
+function isCollapsePhase(phase: RunPhase): phase is CollapsePhase {
+  return phase === "collapse_one" || phase === "collapse_two";
+}
+
 export function toBackendMemoryRecord(memory: MemoryItem): BackendMemoryRecord {
   return {
     memoryId: memory.id,
@@ -92,7 +113,7 @@ export function toBackendMemoryRecord(memory: MemoryItem): BackendMemoryRecord {
 
 function createMemoryItem(
   effect: MemoryEffect,
-  event: GameEvent,
+  scene: StoryScene,
   choice: Choice,
   day: number,
   index: number
@@ -100,13 +121,13 @@ function createMemoryItem(
   const persistent = effect.persistent ?? effect.type !== "short_term";
 
   return {
-    id: `${event.id}-${choice.id}-${day}-${index + 1}`,
+    id: `${scene.id}-${choice.id}-${day}-${index + 1}`,
     title: effect.title,
     text: effect.text,
     type: effect.type,
     visibility: effect.visibility,
     location: effect.location,
-    source: effect.source ?? event.title,
+    source: effect.source ?? scene.title,
     sourceNpcId: effect.sourceNpcId,
     faction: effect.faction,
     createdDay: day,
@@ -115,7 +136,7 @@ function createMemoryItem(
     active: true,
     reliability: effect.reliability,
     evidenceRole: effect.evidenceRole,
-    tags: buildMemoryTags(effect, event, choice),
+    tags: buildMemoryTags(effect, scene, choice),
   };
 }
 
@@ -132,8 +153,124 @@ function applyResourceEffects(resources: GameResources, effects?: Partial<GameRe
   };
 }
 
-export function getEventForDay(day: number) {
-  return gameEvents.find((event) => event.day === day) ?? null;
+function getSceneIndexForPhase(phase: LoopPhase) {
+  return gameScenes.findIndex((scene) => scene.phase === phase);
+}
+
+function getLoopPhaseLabel(phase: LoopPhase) {
+  return phase === "loop_one" ? "Loop One" : "Loop Two";
+}
+
+function getNextRunPhase(phase: RunPhase): RunPhase | null {
+  switch (phase) {
+    case "loop_one":
+      return "collapse_one";
+    case "collapse_one":
+      return "loop_two";
+    case "loop_two":
+      return "collapse_two";
+    case "collapse_two":
+      return "trial";
+    case "trial":
+      return "ending";
+    case "ending":
+      return null;
+    default:
+      return null;
+  }
+}
+
+function buildSceneIntro(scene: StoryScene, previousScene?: StoryScene | null) {
+  if (!previousScene || scene.day > previousScene.day) {
+    return `Day ${scene.day} begins at ${scene.location}. Choose how the caravan responds.`;
+  }
+
+  return `Later on Day ${scene.day}, the caravan reaches ${scene.location}. Choose how the caravan responds.`;
+}
+
+export function getCurrentScene(gameState: GameState) {
+  if (!isLoopPhase(gameState.phase) || gameState.currentSceneIndex === null) {
+    return null;
+  }
+
+  return gameScenes[gameState.currentSceneIndex] ?? null;
+}
+
+export function getSceneChoiceRecord(gameState: GameState, sceneId: string): SceneChoiceRecord | null {
+  return gameState.sceneChoices[sceneId] ?? null;
+}
+
+export function getCurrentSceneChoice(gameState: GameState) {
+  const scene = getCurrentScene(gameState);
+
+  if (!scene) {
+    return null;
+  }
+
+  return getSceneChoiceRecord(gameState, scene.id);
+}
+
+export function getCollapseCheckpoint(phase: CollapsePhase): CollapseCheckpoint | null {
+  return collapseCheckpoints.find((checkpoint) => checkpoint.phase === phase) ?? null;
+}
+
+export function getPhaseCard(phase: Extract<RunPhase, "trial" | "ending">): PhaseCard {
+  return phase === "trial" ? trialPlaceholder : endingPlaceholder;
+}
+
+export function getPhaseLabel(phase: RunPhase) {
+  switch (phase) {
+    case "loop_one":
+    case "loop_two":
+      return getLoopPhaseLabel(phase);
+    case "collapse_one":
+      return "Collapse One";
+    case "collapse_two":
+      return "Collapse Two";
+    case "trial":
+      return "Trial";
+    case "ending":
+      return "Ending";
+    default:
+      return "Run";
+  }
+}
+
+export function getCurrentPhaseContent(gameState: GameState) {
+  const scene = getCurrentScene(gameState);
+
+  if (scene) {
+    return {
+      day: scene.day,
+      location: scene.location,
+      title: scene.title,
+      description: scene.description,
+    };
+  }
+
+  if (isCollapsePhase(gameState.phase)) {
+    const checkpoint = getCollapseCheckpoint(gameState.phase);
+
+    if (checkpoint) {
+      return {
+        day: checkpoint.day,
+        location: checkpoint.location,
+        title: checkpoint.title,
+        description: checkpoint.description,
+      };
+    }
+  }
+
+  const phaseCard = getPhaseCard(
+    gameState.phase === "trial" || gameState.phase === "ending" ? gameState.phase : "trial"
+  );
+
+  return {
+    day: phaseCard.day,
+    location: phaseCard.location,
+    title: phaseCard.title,
+    description: phaseCard.description,
+  };
 }
 
 export function getNpcProfileById(npcId: NPCProfile["id"]) {
@@ -141,18 +278,18 @@ export function getNpcProfileById(npcId: NPCProfile["id"]) {
 }
 
 export function applyChoice(gameState: GameState, choice: Choice): GameState {
-  if (gameState.currentDay > 7 || gameState.dayChoices[gameState.currentDay]) {
+  if (!isLoopPhase(gameState.phase)) {
     return gameState;
   }
 
-  const event = getEventForDay(gameState.currentDay);
+  const scene = getCurrentScene(gameState);
 
-  if (!event) {
+  if (!scene || gameState.sceneChoices[scene.id]) {
     return gameState;
   }
 
   const newMemories = choice.memoryEffects.map((effect, index) =>
-    createMemoryItem(effect, event, choice, gameState.currentDay, index)
+    createMemoryItem(effect, scene, choice, scene.day, index)
   );
 
   const updatedFactions = { ...gameState.factions };
@@ -166,10 +303,10 @@ export function applyChoice(gameState: GameState, choice: Choice): GameState {
     memories: [...gameState.memories, ...newMemories],
     factions: updatedFactions,
     resources: applyResourceEffects(gameState.resources, choice.resourceEffects),
-    dayChoices: {
-      ...gameState.dayChoices,
-      [gameState.currentDay]: {
-        eventId: event.id,
+    sceneChoices: {
+      ...gameState.sceneChoices,
+      [scene.id]: {
+        sceneId: scene.id,
         choiceId: choice.id,
         choiceLabel: choice.label,
         outcomeText: choice.outcomeText,
@@ -179,21 +316,118 @@ export function applyChoice(gameState: GameState, choice: Choice): GameState {
   };
 }
 
-export function advanceDay(gameState: GameState): GameState {
-  if (gameState.currentDay >= 8) {
+function advanceLoopScene(gameState: GameState): GameState {
+  const scene = getCurrentScene(gameState);
+  const currentIndex = gameState.currentSceneIndex;
+
+  if (!scene || currentIndex === null || !gameState.sceneChoices[scene.id]) {
     return gameState;
   }
 
-  const nextDay = gameState.currentDay + 1;
-  const nextEvent = getEventForDay(nextDay);
+  const nextScene = gameScenes[currentIndex + 1] ?? null;
+  const nextPhase = getNextRunPhase(gameState.phase);
+
+  if (nextScene && nextScene.phase === gameState.phase) {
+    return {
+      ...gameState,
+      currentDay: nextScene.day,
+      currentSceneIndex: currentIndex + 1,
+      sceneStatus: buildSceneIntro(nextScene, scene),
+    };
+  }
+
+  if (!nextPhase || !isCollapsePhase(nextPhase)) {
+    return gameState;
+  }
+
+  const checkpoint = getCollapseCheckpoint(nextPhase);
+
+  if (!checkpoint) {
+    return gameState;
+  }
 
   return {
     ...gameState,
-    currentDay: nextDay,
-    sceneStatus: nextEvent
-      ? `Day ${nextDay} begins at ${nextEvent.location}. Choose how the caravan responds.`
-      : day8Aftermath.description,
+    phase: nextPhase,
+    currentDay: checkpoint.day,
+    currentSceneIndex: null,
+    sceneStatus: checkpoint.description,
   };
+}
+
+function advanceCollapsePhase(gameState: GameState): GameState {
+  if (!isCollapsePhase(gameState.phase)) {
+    return gameState;
+  }
+
+  const checkpoint = getCollapseCheckpoint(gameState.phase);
+  const nextPhase = getNextRunPhase(gameState.phase);
+
+  if (!checkpoint || !nextPhase) {
+    return gameState;
+  }
+
+  const nextMemories = applySevenDayForgetting(gameState.memories, checkpoint.nextDay);
+
+  if (nextPhase === "loop_two") {
+    const nextSceneIndex = getSceneIndexForPhase(nextPhase);
+    const nextScene = nextSceneIndex >= 0 ? gameScenes[nextSceneIndex] : null;
+
+    if (!nextScene) {
+      return gameState;
+    }
+
+    return {
+      ...gameState,
+      phase: nextPhase,
+      currentDay: nextScene.day,
+      currentSceneIndex: nextSceneIndex,
+      memories: nextMemories,
+      sceneStatus: buildSceneIntro(nextScene),
+    };
+  }
+
+  const phaseCard =
+    nextPhase === "trial" || nextPhase === "ending" ? getPhaseCard(nextPhase) : null;
+
+  if (!phaseCard) {
+    return gameState;
+  }
+
+  return {
+    ...gameState,
+    phase: nextPhase,
+    currentDay: phaseCard.day,
+    currentSceneIndex: null,
+    memories: nextMemories,
+    sceneStatus: phaseCard.description,
+  };
+}
+
+function advanceStaticPhase(gameState: GameState): GameState {
+  if (gameState.phase === "trial") {
+    return {
+      ...gameState,
+      phase: "ending",
+      currentDay: endingPlaceholder.day,
+      currentSceneIndex: null,
+      sceneStatus: endingPlaceholder.description,
+    };
+  }
+
+  return gameState;
+}
+
+export function advanceRunPhase(gameState: GameState): GameState {
+  if (isLoopPhase(gameState.phase)) {
+    return advanceLoopScene(gameState);
+  }
+
+  if (isCollapsePhase(gameState.phase)) {
+    return advanceCollapsePhase(gameState);
+  }
+
+  return advanceStaticPhase(gameState);
 }
 
 export function applySevenDayForgetting(memories: MemoryItem[], currentDay: number) {
@@ -438,22 +672,6 @@ export function getMemoryCollapsePreview(
     expiringOnNextDay,
     persistingMemories,
     persistentPublicEvidence,
-  };
-}
-
-export function applyDay8Transition(gameState: GameState): GameState {
-  const advancedState = gameState.currentDay === 7 ? advanceDay(gameState) : gameState;
-
-  if (advancedState.currentDay !== 8 || advancedState.hasAppliedDay8) {
-    return advancedState;
-  }
-
-  return {
-    ...advancedState,
-    memories: applySevenDayForgetting(advancedState.memories, 8),
-    hasAppliedDay8: true,
-    sceneStatus:
-      "Day 8 dawns. The oldest short-term traces collapse, but newer witness memories, records, contracts, songs, and rumors still compete to define the caravan.",
   };
 }
 
@@ -754,6 +972,6 @@ export function getNpcReaction(gameState: GameState, profile: NPCProfile): NpcRe
   }
 }
 
-export function getDay8NpcReactions(gameState: GameState): NpcReaction[] {
+export function getAllNpcReactionsLocally(gameState: GameState): NpcReaction[] {
   return npcProfiles.map((profile) => getNpcReaction(gameState, profile));
 }

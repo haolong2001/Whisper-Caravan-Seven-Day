@@ -10,6 +10,7 @@ type GameSceneProps = {
   sceneStatus: string;
   options: Choice[];
   choicesLocked: boolean;
+  emptyStateText?: string;
   onSelectChoice: (id: ChoiceId) => void;
 };
 
@@ -22,6 +23,7 @@ export function GameScene({
   sceneStatus,
   options,
   choicesLocked,
+  emptyStateText = "This phase has no authored scene choices yet.",
   onSelectChoice,
 }: GameSceneProps) {
   return (
@@ -56,13 +58,13 @@ export function GameScene({
             Choices
           </p>
           <span className="text-xs uppercase tracking-[0.25em] text-stone-400">
-            {choicesLocked ? "One choice per day" : "Choose one action"}
+            {choicesLocked ? "This scene is locked" : "Choose one action"}
           </span>
         </div>
 
         {options.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-white/15 p-5 text-sm text-stone-400">
-            The event loop has closed for this prototype. Review what remains in memory.
+            {emptyStateText}
           </div>
         ) : (
           <div className="space-y-4">

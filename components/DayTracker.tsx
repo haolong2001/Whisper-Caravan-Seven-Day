@@ -1,6 +1,7 @@
 type DayTrackerProps = {
   day: number;
   location: string;
+  phaseLabel: string;
   statusText: string;
   actionLabel?: string;
   actionDisabled?: boolean;
@@ -10,6 +11,7 @@ type DayTrackerProps = {
 export function DayTracker({
   day,
   location,
+  phaseLabel,
   statusText,
   actionLabel,
   actionDisabled = false,
@@ -30,6 +32,9 @@ export function DayTracker({
               {location}
             </span>
           </div>
+          <p className="mt-2 text-xs uppercase tracking-[0.3em] text-stone-400">
+            {phaseLabel}
+          </p>
         </div>
         <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
           <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-stone-300">

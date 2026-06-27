@@ -43,11 +43,23 @@ type ReactionRequest = {
 const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";
 
 function getBackendUrl() {
-  return process.env.NEXT_PUBLIC_BACKEND_URL ?? DEFAULT_BACKEND_URL;
+  const configuredUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
+
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  return process.env.NODE_ENV === "development" ? DEFAULT_BACKEND_URL : null;
 }
 
 async function postJson<TResponse>(path: string, body: unknown): Promise<TResponse> {
-  const response = await fetch(`${getBackendUrl()}${path}`, {
+  const backendUrl = getBackendUrl();
+
+  if (!backendUrl) {
+    throw new Error("Backend URL is not configured for this runtime.");
+  }
+
+  const response = await fetch(`${backendUrl}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -159,8 +171,14 @@ export async function getAllNpcReactions(
 }
 
 export async function getBackendHealth() {
+  const backendUrl = getBackendUrl();
+
+  if (!backendUrl) {
+    return false;
+  }
+
   try {
-    const response = await fetch(`${getBackendUrl()}/health`);
+    const response = await fetch(`${backendUrl}/health`);
 
     if (!response.ok) {
       throw new Error(`Backend health check failed with status ${response.status}`);

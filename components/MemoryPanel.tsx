@@ -19,10 +19,10 @@ export function MemoryPanel({ memories, activeCount, expiredCount }: MemoryPanel
     <section className="panel panel-glow rounded-3xl p-6 shadow-panel">
       <div className="mb-6">
         <p className="text-xs uppercase tracking-[0.35em] text-amber-100/70">
-          Memory Inspector
+          Caravan Memory
         </p>
         <div className="mt-3 flex items-end justify-between gap-3">
-          <h2 className="font-display text-3xl text-parchment">Memory Stack</h2>
+          <h2 className="font-display text-3xl text-parchment">Memory Ledger</h2>
           <div className="text-right text-xs uppercase tracking-[0.25em] text-stone-400">
             <div>{activeCount} active</div>
             <div className="mt-1">{expiredCount} expired</div>
@@ -30,8 +30,8 @@ export function MemoryPanel({ memories, activeCount, expiredCount }: MemoryPanel
         </div>
         <p className="mt-2 text-sm leading-6 text-stone-300">
           Short-term memories expire seven days after creation. Records, contracts,
-          songs, rumors, and fresher witness traces may still matter on Day 8
-          depending on who is allowed to know them.
+          songs, rumors, and fresher witness traces can survive the collapse checkpoints
+          and still matter when Bear Court judges the caravan.
         </p>
       </div>
 
