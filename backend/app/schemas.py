@@ -10,6 +10,25 @@ MemoryVisibility = Literal["private", "public"]
 EvidenceRole = Literal["incriminating", "favorable", "neutral"]
 FactionKey = Literal["deerVillage", "refugees", "foxMarket", "crowBrokers", "bearCourt"]
 NpcId = Literal["deerGuard", "foxMerchant", "crowBroker", "bearJudge"]
+RouteUnlock = Literal["truth", "merchant", "rumor", "failure"]
+NPCReactionTone = Literal[
+    "friendly",
+    "guarded",
+    "fearful",
+    "hostile",
+    "sympathetic",
+    "evasive",
+]
+EvidenceSummaryType = Literal[
+    "record",
+    "testimony",
+    "rumor",
+    "contradiction",
+    "receipt",
+    "law",
+    "inventory",
+    "medical",
+]
 
 
 class EvidenceMetadata(BaseModel):
@@ -124,3 +143,49 @@ class ReactionRequest(BaseModel):
     currentDay: int
     factions: Dict[FactionKey, int]
     resources: Dict[str, int]
+
+
+class ReactionGameStateSummary(BaseModel):
+    trust: Optional[Dict[str, int]] = None
+    legal_risk: Optional[int] = None
+    silver: Optional[int] = None
+    flags: List[str] = Field(default_factory=list)
+    unlocked_routes: List[str] = Field(default_factory=list)
+
+
+class StructuredReactionRequest(BaseModel):
+    npc_id: str
+    session_id: Optional[str] = None
+    player_input: str
+    day: int
+    route: Optional[str] = None
+    known_memory_ids: List[str] = Field(default_factory=list)
+    game_state_summary: ReactionGameStateSummary = Field(default_factory=ReactionGameStateSummary)
+
+
+class EvidenceSummary(BaseModel):
+    memory_id: str
+    title: str
+    type: EvidenceSummaryType
+    reliability: float
+    relevance: float
+
+
+class StructuredReactionExplanation(BaseModel):
+    public_reason: str
+    debug_reason: Optional[str] = None
+
+
+class StructuredNpcReaction(BaseModel):
+    npc_id: str
+    dialogue: str
+    tone: NPCReactionTone
+    trust_delta: int
+    legal_risk_delta: int
+    price_modifier: Optional[float] = None
+    quest_available: Optional[bool] = None
+    route_unlocks: List[RouteUnlock] = Field(default_factory=list)
+    evidence: List[EvidenceSummary] = Field(default_factory=list)
+    memory_refs: List[str] = Field(default_factory=list)
+    flags_set: List[str] = Field(default_factory=list)
+    explanation: Optional[StructuredReactionExplanation] = None

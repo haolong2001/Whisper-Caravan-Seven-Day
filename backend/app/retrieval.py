@@ -4,7 +4,13 @@ from dataclasses import dataclass
 from typing import List
 
 from .rules import get_profile
-from .schemas import BackendMemoryRecord, QueryRequest, ReactionRequest, RetrievalDebug
+from .schemas import (
+    BackendMemoryRecord,
+    QueryRequest,
+    ReactionRequest,
+    RetrievalDebug,
+    StructuredReactionRequest,
+)
 
 
 @dataclass
@@ -85,6 +91,37 @@ def build_reaction_query_text(request: ReactionRequest) -> str:
         ]
         if part
     )
+
+
+def build_structured_reaction_query_text(request: StructuredReactionRequest) -> str:
+    parts: List[str] = [
+        "structured",
+        "reaction",
+        "day",
+        str(request.day),
+        "npc",
+        request.npc_id.replace("_", " "),
+    ]
+
+    if request.route:
+        parts.extend(["route", request.route])
+
+    if request.player_input.strip():
+        parts.extend(["player", request.player_input.strip()])
+
+    if request.known_memory_ids:
+        parts.extend(["known", _normalized_text_list(request.known_memory_ids)])
+
+    if request.game_state_summary.unlocked_routes:
+        parts.extend(["unlocked", _normalized_text_list(request.game_state_summary.unlocked_routes)])
+
+    if request.game_state_summary.flags:
+        parts.extend(["flags", " ".join(request.game_state_summary.flags)])
+
+    if request.game_state_summary.legal_risk is not None:
+        parts.extend(["risk", str(request.game_state_summary.legal_risk)])
+
+    return " ".join(part for part in parts if part)
 
 
 def _vector_query_limit(total_memories: int, requested_limit: int | None = None) -> int:
@@ -171,6 +208,26 @@ def candidate_memories_for_reaction(
     store, vector_store, request: ReactionRequest
 ) -> List[BackendMemoryRecord]:
     return resolve_candidate_memories_for_reaction(store, vector_store, request).memories
+
+
+def resolve_candidate_memories_for_structured_reaction(
+    store, vector_store, request: StructuredReactionRequest
+) -> CandidateResolution:
+    if not request.session_id:
+        return CandidateResolution(memories=[], candidate_ids=[], retrieval_source="sqlite")
+
+    all_memories = store.list_memories(request.session_id)
+
+    if not all_memories:
+        return CandidateResolution(memories=[], candidate_ids=[], retrieval_source="sqlite")
+
+    candidate_ids = vector_store.query_candidate_memory_ids(
+        request.session_id,
+        build_structured_reaction_query_text(request),
+        _vector_query_limit(len(all_memories)),
+    )
+
+    return _resolve_candidates(store, request.session_id, all_memories, candidate_ids)
 
 
 def candidate_resolution_debug(

@@ -2,12 +2,15 @@ import {
   BackendMemoryRecord,
   Choice,
   CollapseCheckpoint,
+  EvidenceSummary,
   EvaluatedEvidence,
   GameResources,
   MemoryQueryRequest,
   MemoryQueryResult,
+  NPCReaction,
   PhaseCard,
   RouteTag,
+  RouteUnlock,
   RunPhase,
   SceneChoiceRecord,
   GameState,
@@ -1206,4 +1209,74 @@ export function getNpcReaction(gameState: GameState, profile: NPCProfile): NpcRe
 
 export function getAllNpcReactionsLocally(gameState: GameState): NpcReaction[] {
   return npcProfiles.map((profile) => getNpcReaction(gameState, profile));
+}
+
+function mergeUniqueStrings(existing: string[] | undefined, next: string[] | undefined) {
+  return Array.from(
+    new Set([
+      ...(existing ?? []).filter((item) => item.trim().length > 0),
+      ...((next ?? []).filter((item) => item.trim().length > 0) as string[]),
+    ])
+  );
+}
+
+function mergeUniqueRouteUnlocks(
+  existing: RouteUnlock[] | undefined,
+  next: RouteUnlock[] | undefined
+) {
+  return Array.from(new Set([...(existing ?? []), ...(next ?? [])]));
+}
+
+function mergeCollectedEvidence(
+  existing: EvidenceSummary[] | undefined,
+  next: EvidenceSummary[] | undefined
+) {
+  const evidenceById = new Map<string, EvidenceSummary>();
+
+  for (const item of existing ?? []) {
+    evidenceById.set(item.memory_id, item);
+  }
+
+  for (const item of next ?? []) {
+    evidenceById.set(item.memory_id, item);
+  }
+
+  return Array.from(evidenceById.values());
+}
+
+export function applyNpcReaction(gameState: GameState, reaction: NPCReaction): GameState {
+  const currentTrust = gameState.npcTrust?.[reaction.npc_id] ?? 0;
+  const npcTrust = {
+    ...(gameState.npcTrust ?? {}),
+    [reaction.npc_id]: currentTrust + reaction.trust_delta,
+  };
+  const npcPriceModifiers =
+    reaction.price_modifier === undefined
+      ? { ...(gameState.npcPriceModifiers ?? {}) }
+      : {
+          ...(gameState.npcPriceModifiers ?? {}),
+          [reaction.npc_id]: reaction.price_modifier,
+        };
+  const npcQuestAvailability =
+    typeof reaction.quest_available === "boolean"
+      ? {
+          ...(gameState.npcQuestAvailability ?? {}),
+          [reaction.npc_id]: reaction.quest_available,
+        }
+      : { ...(gameState.npcQuestAvailability ?? {}) };
+
+  return {
+    ...gameState,
+    resources: {
+      ...gameState.resources,
+      legalRisk: gameState.resources.legalRisk + reaction.legal_risk_delta,
+    },
+    npcTrust,
+    collectedEvidence: mergeCollectedEvidence(gameState.collectedEvidence, reaction.evidence),
+    unlockedRoutes: mergeUniqueRouteUnlocks(gameState.unlockedRoutes, reaction.route_unlocks),
+    npcPriceModifiers,
+    npcQuestAvailability,
+    flags: mergeUniqueStrings(gameState.flags, reaction.flags_set),
+    latestNpcReaction: reaction,
+  };
 }

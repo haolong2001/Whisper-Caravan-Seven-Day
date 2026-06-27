@@ -32,6 +32,7 @@ export type StoryNpcId =
   | "bearJudgeAuthority";
 
 export type RouteTag = "truth" | "merchant" | "rumor" | "failure";
+export type RouteUnlock = RouteTag;
 
 export type EndingId = "A1" | "A2" | "B" | "C" | "D";
 
@@ -184,6 +185,67 @@ export type NpcReaction = {
   debug?: RetrievalDebug;
 };
 
+export type NPCReactionTone =
+  | "friendly"
+  | "guarded"
+  | "fearful"
+  | "hostile"
+  | "sympathetic"
+  | "evasive";
+
+export type EvidenceSummary = {
+  memory_id: string;
+  title: string;
+  type:
+    | "record"
+    | "testimony"
+    | "rumor"
+    | "contradiction"
+    | "receipt"
+    | "law"
+    | "inventory"
+    | "medical";
+  reliability: number;
+  relevance: number;
+};
+
+export type ReactionRequest = {
+  npc_id: string;
+  session_id?: string;
+  player_input: string;
+  day: number;
+  route?: string;
+  known_memory_ids: string[];
+  game_state_summary: {
+    trust?: Record<string, number>;
+    legal_risk?: number;
+    silver?: number;
+    flags?: string[];
+    unlocked_routes?: string[];
+  };
+};
+
+export type ReactionEffectPatch = {
+  trust_delta: number;
+  legal_risk_delta: number;
+  price_modifier?: number;
+  quest_available?: boolean;
+  route_unlocks?: RouteUnlock[];
+  flags_set?: string[];
+};
+
+export type NPCReaction = ReactionEffectPatch & {
+  npc_id: string;
+  dialogue: string;
+  tone: NPCReactionTone;
+  evidence: EvidenceSummary[];
+  memory_refs: string[];
+  explanation?: {
+    public_reason: string;
+    debug_reason?: string;
+  };
+};
+
 export type BackendMemoryRecord = {
   memoryId: string;
   title: string;
@@ -304,6 +366,13 @@ export type GameState = {
   memories: MemoryItem[];
   factions: FactionState;
   resources: GameResources;
+  npcTrust?: Record<string, number>;
+  collectedEvidence?: EvidenceSummary[];
+  unlockedRoutes?: RouteUnlock[];
+  npcPriceModifiers?: Record<string, number>;
+  npcQuestAvailability?: Record<string, boolean>;
+  flags?: string[];
+  latestNpcReaction?: NPCReaction;
   sceneChoices: Partial<Record<string, SceneChoiceRecord>>;
   sceneStatus: string;
 };

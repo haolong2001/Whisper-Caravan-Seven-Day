@@ -168,6 +168,12 @@ export function createInitialGameState(): GameState {
     memories: [],
     factions: { ...initialFactions },
     resources: { ...initialResources },
+    npcTrust: {},
+    collectedEvidence: [],
+    unlockedRoutes: [],
+    npcPriceModifiers: {},
+    npcQuestAvailability: {},
+    flags: [],
     sceneChoices: {},
     sceneStatus: initialSceneStatus,
   };

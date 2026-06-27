@@ -1,21 +1,27 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .dialogue_provider import maybe_enrich_reaction_dialogue
 from .retrieval import (
     candidate_resolution_debug,
     resolve_candidate_memories_for_query,
-    resolve_candidate_memories_for_reaction,
+    resolve_candidate_memories_for_structured_reaction,
 )
-from .rules import build_npc_reaction, query_memories
+from .rules import query_memories
 from .schemas import (
     IngestRequest,
     IngestResponse,
-    NpcReaction,
     QueryRequest,
     QueryResponse,
-    ReactionRequest,
+    StructuredNpcReaction,
+    StructuredReactionRequest,
+)
+from .structured_reaction import (
+    build_fake_structured_reaction,
+    build_retrieval_backed_structured_reaction,
+    sanitize_structured_reaction,
 )
 from .store import store
 from .vector_store import vector_store
@@ -54,19 +60,16 @@ def query_stored_memories(request: QueryRequest) -> QueryResponse:
     )
 
 
-@app.post("/npc/reaction", response_model=NpcReaction)
-def npc_reaction(request: ReactionRequest) -> NpcReaction:
-    resolution = resolve_candidate_memories_for_reaction(store, vector_store, request)
+@app.post("/npc/reaction", response_model=StructuredNpcReaction)
+def npc_reaction(request: StructuredReactionRequest) -> StructuredNpcReaction:
+    resolution = resolve_candidate_memories_for_structured_reaction(store, vector_store, request)
 
-    if not resolution.memories:
-        raise HTTPException(status_code=404, detail="No memories ingested for session")
-
-    try:
-        reaction = build_npc_reaction(request.npcId, resolution.memories, request.factions)
-        reaction.debug = candidate_resolution_debug(
-            resolution,
-            len(reaction.acceptedEvidence) + len(reaction.rejectedEvidence),
+    if resolution.memories:
+        base_reaction = sanitize_structured_reaction(
+            build_retrieval_backed_structured_reaction(request, resolution.memories),
+            request,
         )
-        return reaction
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+        return maybe_enrich_reaction_dialogue(request, base_reaction)
+
+    base_reaction = sanitize_structured_reaction(build_fake_structured_reaction(request), request)
+    return maybe_enrich_reaction_dialogue(request, base_reaction)
