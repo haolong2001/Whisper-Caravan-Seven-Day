@@ -17,6 +17,8 @@ NPCs keep only **seven days** of direct memory. A kindness may fade. A witness m
 
 [Play Whisper Caravan](https://whisper-caravan-seven-day.vercel.app/)
 
+*(Note: For the best experience, please use a desktop browser. Mobile experience optimization is currently ongoing.)*
+
 ## Highlights
 
 * **14-day narrative run** with one major event per day
