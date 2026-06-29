@@ -167,7 +167,7 @@ function TitleCard({
             <div className="flex flex-col justify-between p-6 sm:p-8">
               <div>
                 <h2 className="font-display mt-4 text-3xl text-parchment sm:text-4xl">
-                  {hasSavedRun ? "Continue the road already taken" : "They say you did something wrong"}
+                  {hasSavedRun ? "Continue the road already taken" : "What Will They Remember You As"}
                 </h2>
                 {hasSavedRun ? (
                   <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base">
@@ -685,8 +685,8 @@ export default function Home() {
                       type="button"
                       onClick={() => setActiveRailTab("memory")}
                       className={`rounded-full px-4 py-2 text-xs uppercase tracking-[0.28em] transition ${activeRailTab === "memory"
-                          ? "bg-amber-500 text-stone-950"
-                          : "text-stone-300 hover:text-white"
+                        ? "bg-amber-500 text-stone-950"
+                        : "text-stone-300 hover:text-white"
                         }`}
                     >
                       Memory
@@ -695,8 +695,8 @@ export default function Home() {
                       type="button"
                       onClick={() => setActiveRailTab("evidence")}
                       className={`rounded-full px-4 py-2 text-xs uppercase tracking-[0.28em] transition ${activeRailTab === "evidence"
-                          ? "bg-amber-500 text-stone-950"
-                          : "text-stone-300 hover:text-white"
+                        ? "bg-amber-500 text-stone-950"
+                        : "text-stone-300 hover:text-white"
                         }`}
                     >
                       Evidence
