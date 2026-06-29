@@ -1,4 +1,4 @@
-# Whisper Caravan: Advanced Game AI & RAG Memory Systems
+# Whisper Caravan:  RAG Memory Systems and future LLM plans
 
 Whisper Caravan is designed not only as a narrative experience but as a reference architecture for integrating modern context-aware dialogue engines, state validation boundaries, and flexible prompt orchestration into stateful game loops. 
 
