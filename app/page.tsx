@@ -153,30 +153,36 @@ function TitleCard({
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(27,17,11,0.12)_0%,rgba(27,17,11,0.4)_50%,rgba(16,11,8,0.92)_100%)]" />
               <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
                 <p className="text-[11px] uppercase tracking-[0.42em] text-amber-100/80">
-                  Whisper Caravan
+                  Some memories fade. Some become evidence.
                 </p>
                 <h1 className="font-display mt-4 max-w-2xl text-4xl text-[#fff5e1] sm:text-6xl">
-                  Seven-Day Memory
+                  Whisper Caravan
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-200 sm:text-base">
-                  Some memories fade. Some become evidence.
+                  Seven-Day Memory
                 </p>
               </div>
             </div>
 
             <div className="flex flex-col justify-between p-6 sm:p-8">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.38em] text-amber-100/70">
-                  Caravan Ledger
-                </p>
                 <h2 className="font-display mt-4 text-3xl text-parchment sm:text-4xl">
                   {hasSavedRun ? "Continue the road already taken" : "They say you did something wrong"}
                 </h2>
-                <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base">
-                  {hasSavedRun
-                    ? `Saved ${savedAtLabel ?? "earlier"} on Day ${day} during ${phaseLabel} at ${location}.`
-                    : "You have 14 days before Bear Court.\nChoose who to trust, what to record,\nand what the world will remember.\n\nWarning: this world is cursed.\nNPCs keep only seven days of direct memory,\nbut records, contracts, rumors, and songs survive.\nChoose carefully, and decide how the world remembers you."}
-                </p>
+                {hasSavedRun ? (
+                  <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base">
+                    Saved {savedAtLabel ?? "earlier"} on Day {day} during {phaseLabel} at {location}.
+                  </p>
+                ) : (
+                  <div className="mt-4 text-sm leading-7 text-stone-300 sm:text-base">
+                    <p>
+                      An unnamed hero? A criminal? A merchant? Or just an ordinary traveler?
+                    </p>
+                    <p className="mt-4">
+                      Make your choices in a cursed world where memory fades. The evidence, rumors, and songs you leave behind will decide how people remember you after the trial.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-8 space-y-4">

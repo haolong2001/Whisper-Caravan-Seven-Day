@@ -7,6 +7,7 @@ import tempfile
 from fastapi.testclient import TestClient
 
 import backend.app.main as main_module
+import backend.app.dialogue_provider as dialogue_provider_module
 from backend.app.main import app
 from backend.app.store import SQLiteSessionStore
 from backend.app.schemas import StructuredReactionRequest
@@ -40,15 +41,21 @@ class StructuredReactionTests(unittest.TestCase):
         self.original_vector_store = main_module.vector_store
         self.original_llm_provider = os.environ.get("WHISPER_CARAVAN_LLM_PROVIDER")
         self.original_llm_stub_response = os.environ.get("WHISPER_CARAVAN_LLM_STUB_RESPONSE")
+        self.original_gemini_api_key = os.environ.get("GEMINI_API_KEY")
+        self.original_gemini_model = os.environ.get("WHISPER_CARAVAN_GEMINI_MODEL")
+        self.original_gemini_transport = dialogue_provider_module.gemini_transport
         self.store = SQLiteSessionStore(db_path=Path(self.temp_dir.name) / "structured_reactions.db")
         main_module.store = self.store
         main_module.vector_store = FakeVectorStore([])
         os.environ.pop("WHISPER_CARAVAN_LLM_PROVIDER", None)
         os.environ.pop("WHISPER_CARAVAN_LLM_STUB_RESPONSE", None)
+        os.environ.pop("GEMINI_API_KEY", None)
+        os.environ.pop("WHISPER_CARAVAN_GEMINI_MODEL", None)
 
     def tearDown(self):
         main_module.store = self.original_store
         main_module.vector_store = self.original_vector_store
+        dialogue_provider_module.gemini_transport = self.original_gemini_transport
         if self.original_llm_provider is None:
             os.environ.pop("WHISPER_CARAVAN_LLM_PROVIDER", None)
         else:
@@ -57,6 +64,14 @@ class StructuredReactionTests(unittest.TestCase):
             os.environ.pop("WHISPER_CARAVAN_LLM_STUB_RESPONSE", None)
         else:
             os.environ["WHISPER_CARAVAN_LLM_STUB_RESPONSE"] = self.original_llm_stub_response
+        if self.original_gemini_api_key is None:
+            os.environ.pop("GEMINI_API_KEY", None)
+        else:
+            os.environ["GEMINI_API_KEY"] = self.original_gemini_api_key
+        if self.original_gemini_model is None:
+            os.environ.pop("WHISPER_CARAVAN_GEMINI_MODEL", None)
+        else:
+            os.environ["WHISPER_CARAVAN_GEMINI_MODEL"] = self.original_gemini_model
         self.temp_dir.cleanup()
 
     def make_request(self, npc_id="fox_ledger_master", **overrides):
@@ -433,6 +448,113 @@ class StructuredReactionTests(unittest.TestCase):
         self.assertEqual(payload["flags_set"], ["fox_ledger_seen"])
         self.assertEqual(payload["evidence"][0]["memory_id"], "market_ledger_001")
         self.assertEqual(payload["explanation"]["public_reason"], "Generated public reason")
+
+    def test_gemini_provider_without_api_key_falls_back_safely(self):
+        os.environ["WHISPER_CARAVAN_LLM_PROVIDER"] = "gemini"
+
+        response = self.client.post("/npc/reaction", json=self.make_request("crow_broker"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["tone"], "guarded")
+        self.assertIn("There is no market in silence", payload["dialogue"])
+
+    def test_gemini_provider_failure_falls_back_safely(self):
+        os.environ["WHISPER_CARAVAN_LLM_PROVIDER"] = "gemini"
+        os.environ["GEMINI_API_KEY"] = "test-key"
+
+        def failing_transport(url: str, api_key: str, payload: dict):
+            raise OSError("network unavailable")
+
+        dialogue_provider_module.gemini_transport = failing_transport
+
+        response = self.client.post("/npc/reaction", json=self.make_request("camp_healer"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["tone"], "sympathetic")
+        self.assertIn("camp remembers", payload["dialogue"])
+
+    def test_valid_gemini_dialogue_only_overrides_presentation_fields(self):
+        os.environ["WHISPER_CARAVAN_LLM_PROVIDER"] = "gemini"
+        os.environ["GEMINI_API_KEY"] = "test-key"
+        os.environ["WHISPER_CARAVAN_GEMINI_MODEL"] = "gemini-test-model"
+        session_id = "gemini-override-session"
+        self.store.upsert_memories(
+            session_id,
+            [
+                make_memory(
+                    "market_ledger_001",
+                    title="Fox Market Receipt",
+                    memory_type="record",
+                    visibility="public",
+                    reliability=0.91,
+                    active=True,
+                    location="Fox Market",
+                    source="Fox Ledger Office",
+                    tags=["fox", "market", "receipt", "ledger"],
+                    evidence_role="favorable",
+                )
+            ],
+        )
+        main_module.vector_store = FakeVectorStore(["market_ledger_001"])
+        captured = {}
+
+        def fake_transport(url: str, api_key: str, payload: dict):
+            captured["url"] = url
+            captured["api_key"] = api_key
+            captured["payload"] = payload
+            return {
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": json.dumps(
+                                        {
+                                            "dialogue": "The receipt holds. I can speak to that without flinching.",
+                                            "tone": "friendly",
+                                            "public_reason": "The ledger now supports your claim.",
+                                            "trust_delta": 99,
+                                        }
+                                    )
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+
+        dialogue_provider_module.gemini_transport = fake_transport
+
+        response = self.client.post(
+            "/npc/reaction",
+            json=self.make_request(
+                "fox_ledger_master",
+                session_id=session_id,
+                route="merchant",
+                known_memory_ids=["market_ledger_001"],
+                player_input="Show me the ledger or receipt.",
+            ),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("gemini-test-model:generateContent", captured["url"])
+        self.assertEqual(captured["api_key"], "test-key")
+        self.assertEqual(
+            captured["payload"]["generationConfig"]["responseMimeType"], "application/json"
+        )
+        self.assertEqual(payload["dialogue"], "The receipt holds. I can speak to that without flinching.")
+        self.assertEqual(payload["tone"], "friendly")
+        self.assertEqual(payload["memory_refs"], ["market_ledger_001"])
+        self.assertEqual(payload["route_unlocks"], ["merchant"])
+        self.assertEqual(payload["trust_delta"], 3)
+        self.assertEqual(payload["legal_risk_delta"], -2)
+        self.assertAlmostEqual(payload["price_modifier"], 0.93, places=6)
+        self.assertEqual(payload["flags_set"], ["fox_ledger_seen"])
+        self.assertEqual(payload["evidence"][0]["memory_id"], "market_ledger_001")
+        self.assertEqual(payload["explanation"]["public_reason"], "The ledger now supports your claim.")
 
 
 if __name__ == "__main__":

@@ -2,9 +2,9 @@
 
 ## Current Version and Version File
 
-v0.6
+v0.7
 
-`docs/versions/v0.6.md`
+`docs/versions/v0.7.md`
 
 ## Current State
 
@@ -40,16 +40,18 @@ v0.6 slice 6 is now in place:
 
 The browser UI now presents the run as an illustrated desktop-first web game surface. Authored event cards display mapped scene art, the right rail uses a compact Day/Status card plus a switchable Memory or Evidence panel, and debug/backend notices remain hidden by default without changing gameplay rules or trial authority.
 
-## Current v0.6 Goal
+v0.7 is now in place:
 
-All planned v0.6 slices are now in place:
+The backend now supports an optional Gemini dialogue provider on top of the structured NPC reaction stack. `POST /npc/reaction` still computes gameplay fields deterministically first, then allows Gemini to override only dialogue, tone, and optional public-facing explanation text, with safe fallback on missing config, API failure, invalid JSON, or invalid tone.
 
-- slice 1: shared types, local structured adapter, clamping, and pure state application
-- slice 2: backend fake structured endpoint
-- slice 3: retrieval-backed structured reaction
-- slice 4: LLM dialogue and tone only
-- slice 5: trial evidence notebook integration
-- slice 6: UI feedback and illustrated presentation shell
+## Current v0.7 Goal
+
+All planned v0.7 slices are now in place:
+
+- slice 1: keep `dialogue_provider.py` as the only provider boundary and preserve stub coverage
+- slice 2: add Gemini-backed dialogue/tone/public-reason override for `POST /npc/reaction`
+- slice 3: validate and fall back safely on missing config, invalid JSON, or invalid tone
+- slice 4: prove via backend tests that gameplay fields remain deterministic
 
 ## System Reference
 
@@ -72,18 +74,17 @@ Read `docs/GAME_SYSTEMS.md` when changing:
 
 ## Last Completed
 
-v0.6 slice 6:
+v0.7 Gemini dialogue provider integration:
 
-- illustrated desktop-first gameplay shell with left scene stage and right status rail
-- explicit 26-scene image mapping with safe fallback rendering
-- switchable Memory/Evidence journal so only one large panel is visible in normal gameplay
-- hidden-by-default debug/backend notices behind the existing debug toggle
-- preserved structured NPC reaction flow, save/continue/restart behavior, and Bear Court resolution phases
+- preserved `POST /npc/reaction` as the only frontend-facing structured NPC endpoint
+- kept deterministic structured gameplay fields authoritative before any provider override
+- extended `backend/app/dialogue_provider.py` from `stub`-only to `stub` plus `gemini`
+- added Gemini JSON-only dialogue/tone/public-reason override with safe fallback on missing config, transport failure, invalid JSON, or invalid tone
+- kept frontend request and response shape unchanged
+- added backend coverage proving valid Gemini overrides do not mutate trust, legal risk, routes, evidence, memory refs, or flags
 
 Verification on June 28, 2026:
 
-- `npm run test:timeline` passes
-- `node --test frontend-tests/reaction-layer.test.mjs frontend-tests/structured-reaction-ui.test.mjs` passes
 - `.venv/bin/python -m unittest backend.tests.test_structured_reaction backend.tests.test_rules backend.tests.test_store backend.tests.test_retrieval` passes
 - `npm run build` passes
 
@@ -174,6 +175,8 @@ Current repo behavior after v0.6 slice 6:
   - only `dialogue`, `tone`, and optional `public_reason` may be overridden
   - invalid tone/output falls back to deterministic dialogue
   - gameplay fields never come from the provider layer
+  - provider selection now supports `stub` and `gemini`
+  - Gemini uses a backend-only HTTP integration path and is optional
   - no API key is required for tests, build, or local play
 - `applyNpcReaction()` now deterministically updates, when present:
   - per-NPC trust
@@ -210,9 +213,8 @@ Structured reaction smoke check:
 2. Run `.venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000`
 3. Set `NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:8000`
 4. Start or continue a run so the existing retrieval sync keeps ingesting memories under the browser session id
-5. Note the current limitation:
-   - the shipped UI does not yet call `getNpcReaction()`
-   - retrieval-backed structured reactions are therefore only verifiable today by direct endpoint tests or manual requests that include the populated `session_id`
+5. Open a loop scene that surfaces a structured NPC interaction
+6. Trigger the NPC interaction button and confirm the response applies trust, legal risk, route, and evidence changes without double-applying on repeat clicks
 
 ## Build and Deploy
 
@@ -227,13 +229,13 @@ Structured reaction smoke check:
 - browser persistence is local-only and single-device
 - no accounts, cloud saves, analytics, multiplayer, or feedback backend exist
 - backend ingest/query can still be used locally, but the shipped playtest does not require it
-- structured backend reactions are implemented, but current-run UI integration is not yet wired
+- structured NPC reactions are wired into relevant loop-scene UI, but the current presentation remains a constrained first-pass interaction layer rather than a full conversation system
 
 ## Next Task
 
 Recommended next slice:
 
-- v0.6 slice 6: improve structured reaction UI feedback and decide how collected structured evidence should feed deterministic trial scoring without weakening Bear Court authority
+- decide whether to expose a small developer-only backend/provider status indicator in the UI while keeping normal player-facing presentation clean
 
 ## Needs Testing
 
